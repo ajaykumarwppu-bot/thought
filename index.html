@@ -539,7 +539,6 @@ function resolveSuggestion(sid,verdict,ctx){
  updateStats(); buildNav();
  if(ctx==="capture"){ const c=$("#ressuggs"); if(c) c.innerHTML=pendingForCaptureHTML(); }
  if(current==="review") renderMain();
- if(current==="graph") syncGraph();
  if(selId) renderInspector(selId);
 }
 let captureSuggIds=[];
@@ -569,8 +568,8 @@ function ingestNote(source,text){
 }
 
 /* ============================== router & views ============================== */
-let current="graph", selId=null, capTab="text", lastExport=null;
-const VIEWS=[["graph","Constellation"],["capture","Capture"],["review","Review"],["timeline","Timeline"],["search","Search"],["export","Export"]];
+let current="capture", selId=null, capTab="text", lastExport=null;
+const VIEWS=[["capture","Capture"],["graph","Constellation"],["review","Review"],["timeline","Timeline"],["search","Search"],["export","Export"]];
 
 function buildNav(){
  $("#nav").innerHTML=VIEWS.map(([v,label])=>{
