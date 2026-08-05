@@ -927,6 +927,7 @@ loadSettings();
 // Send audio to AI for transcription AND refinement in SINGLE API call
 async function sendAudioToAI(audioBlob){
   const apiKey=settings.apiKey;
+  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
   const model=settings.transcriptModel||'gpt-4o-mini';
   
   if(!apiKey){
@@ -936,9 +937,12 @@ async function sendAudioToAI(audioBlob){
   // Convert audio blob to base64
   const base64Audio=await blobToBase64(audioBlob);
   
-  // Detect provider and build request
-  let endpoint='https://api.openai.com/v1/chat/completions';
-  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  // Build endpoint from base URL - works with ANY provider
+  let endpoint=`${apiBaseUrl}/chat/completions`;
+  let headers={'Content-Type':'application/json'};
+  if(apiKey&&apiKey.trim()!==''){
+    headers['Authorization']=`Bearer ${apiKey}`;
+  }
   
   // System prompt for audio: transcribe EXACTLY then refine to structured format
   const systemPrompt=`You are a knowledge processing assistant. You will receive an audio file.
@@ -960,37 +964,16 @@ Do not include any other text outside the JSON.`;
 
   let body;
   
-  // OpenAI format (supports audio in base64)
-  if(!apiKey.startsWith('sk-ant-') && !(apiKey.startsWith('AI')||apiKey.includes('google'))){
-    body={
-      model:model,
-      messages:[
-        {role:'system',content:systemPrompt},
-        {role:'user',content:[{type:'text',text:'Please transcribe and refine this audio recording.'},{type:'input_audio',audio:{data:base64Audio,format:'webm'}}]}
-      ],
-      temperature:0,
-      max_tokens:4000
-    };
-  }
-  // Anthropic Claude (doesn't support audio directly, need to inform user)
-  else if(apiKey.startsWith('sk-ant-')){
-    throw new Error('Claude API does not support direct audio input. Please use OpenAI or another provider with audio support for voice recordings.');
-  }
-  // Google Gemini
-  else if(apiKey.startsWith('AI')||apiKey.includes('google')){
-    endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model||'gemini-2.0-flash'}:generateContent?key=${apiKey}`;
-    headers={'Content-Type':'application/json'};
-    body={
-      contents:[{
-        parts:[
-          {text:systemPrompt},
-          {text:'Please transcribe and refine this audio recording.'},
-          {inlineData:{mimeType:'audio/webm',data:base64Audio}}
-        ]
-      }],
-      generationConfig:{temperature:0,maxOutputTokens:4000}
-    };
-  }
+  // Standard OpenAI-compatible format - works with ANY provider that supports chat/completions with audio
+  body={
+    model:model,
+    messages:[
+      {role:'system',content:systemPrompt},
+      {role:'user',content:[{type:'text',text:'Please transcribe and refine this audio recording.'},{type:'input_audio',audio:{data:base64Audio,format:'webm'}}]}
+    ],
+    temperature:0,
+    max_tokens:4000
+  };
   
   const response=await fetch(endpoint,{
     method:'POST',
@@ -1057,104 +1040,70 @@ Return ONLY the refined text, no explanations or additional commentary.`;
 // Generic AI call with custom prompt and model
 async function callAIWithPrompt(prompt,systemPrompt,model){
   const apiKey=settings.apiKey;
+  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
   
-  // Detect provider based on API key prefix
-  let endpoint='https://api.openai.com/v1/chat/completions';
-  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  // Build endpoint from base URL - works with ANY provider
+  let endpoint=`${apiBaseUrl}/chat/completions`;
+  let headers={'Content-Type':'application/json'};
+  if(apiKey&&apiKey.trim()!==''){
+    headers['Authorization']=`Bearer ${apiKey}`;
+  }
+  
   let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.3,max_tokens:2000};
-  
-  // Anthropic Claude
-  if(apiKey.startsWith('sk-ant-')){
-    endpoint='https://api.anthropic.com/v1/messages';
-    headers={'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'};
-    body={model:model||'claude-sonnet-4-20250514',max_tokens:2000,system:systemPrompt,messages:[{role:'user',content:prompt}]};
-  }
-  // Google Gemini
-  else if(apiKey.startsWith('AI')||apiKey.includes('google')){
-    endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model||'gemini-2.0-flash'}:generateContent?key=${apiKey}`;
-    headers={'Content-Type':'application/json'};
-    body={contents:[{parts:[{text:`${systemPrompt}\n\n${prompt}`}]}]};
-  }
-  
+
   const response=await fetch(endpoint,{
     method:'POST',
     headers,
     body:JSON.stringify(body)
   });
-  
+
   if(!response.ok){
     const err=await response.json().catch(()=>({}));
     throw new Error(err.error?.message||`API request failed with status ${response.status}`);
   }
-  
+
   const data=await response.json();
-  // Handle different response formats
+  // Handle standard OpenAI-compatible response format
   if(data.choices&&data.choices[0]?.message){
     return data.choices[0].message.content||'';
-  }else if(data.content&&data.content[0]?.text){
-    return data.content[0].text||'';
-  }else if(data.candidates&&data.candidates[0]?.content?.parts){
-    return data.candidates[0].content.parts.map(p=>p.text).join('')||'';
   }
   return '';
 }
+
 
 async function callAI(prompt,systemPrompt='You are a helpful assistant.'){
   const apiKey=settings.apiKey;
+  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
   const model=settings.transcriptModel||settings.researchModel||'gpt-4o-mini';
-  
+
   if(!apiKey){
     throw new Error('API key not configured. Please add your API key in Settings.');
   }
+
+  // Build endpoint from base URL - works with ANY provider
+  let endpoint=`${apiBaseUrl}/chat/completions`;
+  let headers={'Content-Type':'application/json'};
+  if(apiKey&&apiKey.trim()!==''){
+    headers['Authorization']=`Bearer ${apiKey}`;
+  }
   
-  // Detect provider based on API key prefix
-  let endpoint='https://api.openai.com/v1/chat/completions';
-  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
   let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.3,max_tokens:2000};
-  
-  // Anthropic Claude
-  if(apiKey.startsWith('sk-ant-')){
-    endpoint='https://api.anthropic.com/v1/messages';
-    headers={'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'};
-    body={model:model||'claude-sonnet-4-20250514',max_tokens:2000,system:systemPrompt,messages:[{role:'user',content:prompt}]};
-  }
-  // Google Gemini
-  else if(apiKey.startsWith('AI')||apiKey.includes('google')){
-    endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model||'gemini-2.0-flash'}:generateContent?key=${apiKey}`;
-    headers={'Content-Type':'application/json'};
-    body={contents:[{parts:[{text:`${systemPrompt}\n\n${prompt}`}]}]};
-  }
-  // Default: OpenAI or compatible
-  
+
   const response=await fetch(endpoint,{
     method:'POST',
     headers,
     body:JSON.stringify(body)
   });
-  
+
   if(!response.ok){
     const err=await response.json().catch(()=>({}));
     throw new Error(err.error?.message||`API request failed with status ${response.status}`);
   }
-  
+
   const data=await response.json();
-  // Handle different response formats
+  // Handle standard OpenAI-compatible response format
   if(data.choices&&data.choices[0]?.message){
     return data.choices[0].message.content||'';
-  }else if(data.content&&data.content[0]?.text){
-    return data.content[0].text||'';
-  }else if(data.candidates&&data.candidates[0]?.content?.parts){
-    return data.candidates[0].content.parts.map(p=>p.text).join('')||'';
   }
   return '';
-}
-
-
-function blobToBase64(blob){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onloadend=()=>resolve(reader.result.split(',')[1]);
-    reader.onerror=reject;
-    reader.readAsDataURL(blob);
-  });
 }
