@@ -392,51 +392,68 @@ function renderInterim(){
 async function processNote(){
  const btn=$("#processbtn");
  let text= capTab==="voice"? finalT.trim() : ($("#ta")?$("#ta").value.trim():"");
- // Check if audio file was uploaded or recorded
- if(capTab==="voice" && window.capturedAudio && !finalT){
-   // Audio exists but no transcript yet - need to transcribe first via AI
+ let hasAudioFile = capTab==="voice" && window.capturedAudio && !finalT;
+ 
+ // If audio file (recorded or uploaded), send directly to AI for transcription + refinement
+ if(capTab==="voice" && window.capturedAudio){
    btn.disabled=true;
    const body=$("#assistbody");
-   body.innerHTML=`<div class="step active"><span class="tick"></span><div class="st">Transcribing audio with AI...<em id="std0"></em></div></div><div id="results"></div>`;
+   body.innerHTML=`<div class="step active"><span class="tick"></span><div class="st">Processing audio with AI (transcription + refinement)...<em id="std0"></em></div></div><div id="results"></div>`;
+   
    try{
-     const transcript=await transcribeAudioWithAI(window.capturedAudio);
-     if(!transcript){ throw new Error("Transcription failed"); }
-     finalT=transcript;
-     $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio transcribed successfully</div></div><div id="results"></div>`;
+     const result=await processAudioWithAI(window.capturedAudio);
+     if(!result || !result.transcript){ throw new Error("AI processing failed"); }
+     
+     finalT=result.transcript;
+     text=result.transcript;
+     window.aiRefinedVersion=result.refined;
+     
+     $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio processed: transcript extracted & refined by AI</div></div><div id="results"></div>`;
      await sleep(500);
    }catch(e){
-     toast("Transcription failed: "+e.message,"err");
-     btn.disabled=false;
-     return;
+     console.warn("AI audio processing failed, falling back to separate transcription:",e);
+     try{
+       const transcript=await transcribeAudioWithAI(window.capturedAudio);
+       if(!transcript){ throw new Error("Transcription failed"); }
+       finalT=transcript;
+       text=transcript;
+       $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio transcribed (fallback mode)</div></div><div id="results"></div>`;
+       await sleep(500);
+     }catch(e2){
+       toast("Audio processing failed: "+e2.message,"err");
+       btn.disabled=false;
+       return;
+     }
    }
-   text=finalT.trim();
  }
+ 
  if(text.length<12){ toast("Add a little more thought before processing.","warn"); btn.disabled=false; return; }
  btn.disabled=true; stopRec();
  const body=$("#assistbody");
- const steps=[["Preserving original thought",""],["Extracting concepts",""],["Refining structure with AI",""],["Scanning knowledge base for relations",""]];
+ const steps=[["Preserving original thought",""],["Extracting concepts",""],["Building structured output",""],["Scanning knowledge base for relations",""]];
  body.innerHTML=steps.map((s,i)=>`<div class="step" id="st${i}"><span class="tick"></span><div class="st">${s[0]}<em id="std${i}"></em></div></div>`).join("")+`<div id="results"></div>`;
  const act=i=>{$("#st"+i).classList.add("active")}, fin=(i,d)=>{$("#st"+i).classList.remove("active");$("#st"+i).classList.add("done");$("#st"+i).querySelector(".tick").textContent="✓";$("#std"+i).innerHTML=d;};
  
- // Step 1: Preserve original
  act(0); await sleep(550);
  const originalText=text;
  fin(0,`locked verbatim as Note #${state.seq} — never editable, never deletable`);
  
- // Step 2: Extract concepts (using local heuristics for now, can be enhanced with AI)
  act(1); await sleep(700);
  const concepts=extractConcepts(text);
  fin(1,concepts.length?concepts.map(c=>esc(c.name)).join(" · "):"no strong concept signals");
  
- // Step 3: Refine with AI if API key is configured
  act(2);
  let refined=text;
- if(settings.apiKey){
+ if(window.aiRefinedVersion){
+   refined=window.aiRefinedVersion;
+   fin(2,`AI structured output ready <span style="color:var(--amber)">(original transcript preserved)</span>`);
+   window.aiRefinedVersion=null;
+ }else if(settings.apiKey){
    try{
      refined=await refineTextWithAI(text);
      fin(2,`AI Refined Version drafted <span style="color:var(--amber)">(original untouched)</span>`);
    }catch(e){
-     console.warn('AI refinement failed, using local refinement:',e);
+     console.warn("AI refinement failed, using local refinement:",e);
      refined=refineText(text);
      fin(2,`Locally refined <span style="color:var(--faint)">(AI unavailable)</span>`);
    }
@@ -869,20 +886,18 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
 
 /* ============================== settings panel ============================== */
 const SETTINGS_KEY='rhizome_settings';
-let settings={apiKey:'',apiEndpoint:'',transcriptModel:'',researchModel:''};
+let settings={apiKey:'',transcriptModel:'',researchModel:''};
 
 function loadSettings(){
   const s=localStorage.getItem(SETTINGS_KEY);
   if(s){try{settings=JSON.parse(s);}catch(e){}}
   $('#apikey').value=settings.apiKey||'';
-  $('#apiendpoint').value=settings.apiEndpoint||'';
   $('#transcriptmodel').value=settings.transcriptModel||'';
   $('#researchmodel').value=settings.researchModel||'';
 }
 
 function saveSettings(){
   settings.apiKey=$('#apikey').value.trim();
-  settings.apiEndpoint=$('#apiendpoint').value.trim();
   settings.transcriptModel=$('#transcriptmodel').value.trim();
   settings.researchModel=$('#researchmodel').value.trim();
   localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
@@ -910,14 +925,96 @@ loadSettings();
 /* ============================== AI API functions ============================== */
 async function callAI(prompt,systemPrompt='You are a helpful assistant.'){
   const apiKey=settings.apiKey;
-  const endpoint=settings.apiEndpoint||'https://api.openai.com/v1';
+  const model=settings.transcriptModel||settings.researchModel||'gpt-4o-mini';
+  
+  if(!apiKey){
+    throw new Error('API key not configured. Please add your API key in Settings.');
+  }
+  
+  // Detect provider based on API key prefix
+  let endpoint='https://api.openai.com/v1/chat/completions';
+  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.3,max_tokens:2000};
+  
+  // Anthropic Claude
+  if(apiKey.startsWith('sk-ant-')){
+    endpoint='https://api.anthropic.com/v1/messages';
+    headers={'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'};
+    body={model:model||'claude-sonnet-4-20250514',max_tokens:2000,system:systemPrompt,messages:[{role:'user',content:prompt}]};
+  }
+  // Google Gemini
+  else if(apiKey.startsWith('AI')||apiKey.includes('google')){
+    endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model||'gemini-2.0-flash'}:generateContent?key=${apiKey}`;
+    headers={'Content-Type':'application/json'};
+    body={contents:[{parts:[{text:`${systemPrompt}\n\n${prompt}`}]}]};
+  }
+  // Default: OpenAI or compatible
+  
+  const response=await fetch(endpoint,{
+    method:'POST',
+    headers,
+    body:JSON.stringify(body)
+  });
+  
+  if(!response.ok){
+    const err=await response.json().catch(()=>({}));
+    throw new Error(err.error?.message||`API request failed with status ${response.status}`);
+  }
+  
+  const data=await response.json();
+  // Handle different response formats
+  if(data.choices&&data.choices[0]?.message){
+    return data.choices[0].message.content||'';
+  }else if(data.content&&data.content[0]?.text){
+    return data.content[0].text||'';
+  }else if(data.candidates&&data.candidates[0]?.content?.parts){
+    return data.candidates[0].content.parts.map(p=>p.text).join('')||'';
+  }
+  return '';
+}
+
+async function processAudioWithAI(audioBlob){
+  // Send audio directly to AI with comprehensive prompt for transcription + refinement
+  const apiKey=settings.apiKey;
   const model=settings.transcriptModel||'gpt-4o-mini';
   
   if(!apiKey){
     throw new Error('API key not configured. Please add your API key in Settings.');
   }
   
-  const response=await fetch(`${endpoint}/chat/completions`,{
+  // First transcribe using Whisper, then refine with LLM
+  const formData=new FormData();
+  formData.append('file',audioBlob,'recording.webm');
+  formData.append('model','whisper-1');
+  formData.append('response_format','text');
+  
+  const whisperResponse=await fetch('https://api.openai.com/v1/audio/transcriptions',{
+    method:'POST',
+    headers:{
+      'Authorization':`Bearer ${apiKey}`
+    },
+    body:formData
+  });
+  
+  if(!whisperResponse.ok){
+    const err=await whisperResponse.text().catch(()=>whisperResponse.statusText);
+    throw new Error(`Transcription failed: ${err}`);
+  }
+  
+  const transcript=await whisperResponse.text();
+  
+  // Now refine the transcript with LLM
+  const systemPrompt=`You are a knowledge refinement assistant. Your task is to:
+1. Clean up spoken language (remove filler words like "um", "uh", etc.)
+2. Improve readability while preserving the original meaning EXACTLY
+3. Structure the content logically with proper paragraphs
+4. NEVER change the core message or add information not present in the original
+
+Return ONLY the refined text, no explanations.`;
+
+  const refinePrompt=`Refine this transcript for clarity and structure while preserving its exact meaning:\n\n${transcript}`;
+  
+  const refineResponse=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
@@ -927,59 +1024,38 @@ async function callAI(prompt,systemPrompt='You are a helpful assistant.'){
       model:model,
       messages:[
         {role:'system',content:systemPrompt},
-        {role:'user',content:prompt}
+        {role:'user',content:refinePrompt}
       ],
       temperature:0.3,
       max_tokens:2000
     })
   });
   
-  if(!response.ok){
-    const err=await response.json().catch(()=>({}));
-    throw new Error(err.error?.message||`API request failed with status ${response.status}`);
+  if(!refineResponse.ok){
+    const err=await refineResponse.json().catch(()=>({}));
+    throw new Error(err.error?.message||`Refinement failed with status ${refineResponse.status}`);
   }
   
-  const data=await response.json();
-  return data.choices[0]?.message?.content||'';
+  const refineData=await refineResponse.json();
+  const refined=refineData.choices[0]?.message?.content||transcript;
+  
+  return {transcript,refined};
 }
 
 async function transcribeAudioWithAI(audioBlob){
   const apiKey=settings.apiKey;
-  const endpoint=settings.apiEndpoint||'https://api.openai.com/v1';
-  const model=settings.transcriptModel||'gpt-4o-mini';
   
   if(!apiKey){
     throw new Error('API key not configured. Please add your API key in Settings.');
   }
   
-  // Convert blob to base64 for sending to API
-  const base64Audio=await blobToBase64(audioBlob);
-  const audioType=audioBlob.type||'audio/webm';
-  
-  const prompt='Transcribe the following audio recording accurately. Return only the spoken text, no additional commentary.';
-  
-  // For now, we'll use a text-based approach since most APIs need special handling for audio
-  // In production, you'd use Whisper API or similar
-  const systemPrompt='You are transcribing audio. Return only the exact spoken words.';
-  
-  // Note: This is a simplified version - real audio transcription requires multipart/form-data
-  // or a dedicated speech-to-text API like OpenAI Whisper
-  // For this implementation, we'll simulate by asking user to provide transcript
-  // or use browser's built-in speech recognition if available
-  
-  // Try using browser SpeechRecognition first if available
-  if(window.SpeechRecognition||window.webkitSpeechRecognition){
-    return await transcribeWithBrowserSpeech(audioBlob);
-  }
-  
-  // Fallback: For file upload, we need to send to API
-  // This requires proper multipart form data handling
+  // Use OpenAI Whisper API for transcription
   const formData=new FormData();
   formData.append('file',audioBlob,'recording.webm');
   formData.append('model','whisper-1');
   formData.append('response_format','text');
   
-  const response=await fetch(`${endpoint.replace('/v1','')}/audio/transcriptions`,{
+  const response=await fetch('https://api.openai.com/v1/audio/transcriptions',{
     method:'POST',
     headers:{
       'Authorization':`Bearer ${apiKey}`
