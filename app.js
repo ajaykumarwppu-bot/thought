@@ -759,18 +759,22 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
 
 /* ============================== settings panel ============================== */
 const SETTINGS_KEY='rhizome_settings';
-let settings={apiKey:'',apiEndpoint:''};
+let settings={apiKey:'',apiEndpoint:'',transcriptModel:'',researchModel:''};
 
 function loadSettings(){
   const s=localStorage.getItem(SETTINGS_KEY);
   if(s){try{settings=JSON.parse(s);}catch(e){}}
   $('#apikey').value=settings.apiKey||'';
   $('#apiendpoint').value=settings.apiEndpoint||'';
+  $('#transcriptmodel').value=settings.transcriptModel||'';
+  $('#researchmodel').value=settings.researchModel||'';
 }
 
 function saveSettings(){
   settings.apiKey=$('#apikey').value.trim();
   settings.apiEndpoint=$('#apiendpoint').value.trim();
+  settings.transcriptModel=$('#transcriptmodel').value.trim();
+  settings.researchModel=$('#researchmodel').value.trim();
   localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
   toast('Settings saved successfully','ok');
   closeSettingsPanel();

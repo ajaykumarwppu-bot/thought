@@ -53,6 +53,16 @@
         <input type="text" id="apiendpoint" placeholder="https://api.example.com/v1" autocomplete="off">
         <p class="setting-hint">Custom API endpoint if different from default.</p>
       </div>
+      <div class="setting-group">
+        <label for="transcriptmodel">Transcript & Refinement Model</label>
+        <input type="text" id="transcriptmodel" placeholder="e.g., gpt-4o, claude-sonnet-4-20250514" autocomplete="off">
+        <p class="setting-hint">AI model to use for transcribing recordings and refining text into points with tags.</p>
+      </div>
+      <div class="setting-group">
+        <label for="researchmodel">Deep Research Model</label>
+        <input type="text" id="researchmodel" placeholder="e.g., gpt-4o, claude-sonnet-4-20250514" autocomplete="off">
+        <p class="setting-hint">AI model to use for deep research tasks.</p>
+      </div>
       <button class="btn btn-primary" id="savesettings">Save Settings</button>
     </div>
   </div>
