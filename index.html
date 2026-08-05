@@ -45,13 +45,18 @@
     <div class="settings-body">
       <div class="setting-group">
         <label for="apikey">API Key</label>
-        <input type="text" id="apikey" placeholder="Enter your API key" autocomplete="off">
-        <p class="setting-hint">Your API key is stored locally. Supports OpenAI, Anthropic, and other providers.</p>
+        <input type="text" id="apikey" placeholder="Enter your API key (any provider)" autocomplete="off">
+        <p class="setting-hint">Your API key is stored locally. Works with any provider.</p>
+      </div>
+      <div class="setting-group">
+        <label for="apibaseurl">API Base URL</label>
+        <input type="text" id="apibaseurl" placeholder="e.g., https://api.openai.com/v1" value="https://api.openai.com/v1" autocomplete="off">
+        <p class="setting-hint">The base URL of your AI provider's API.</p>
       </div>
       <div class="setting-group">
         <label for="transcriptmodel">Transcript & Refinement Model</label>
-        <input type="text" id="transcriptmodel" placeholder="e.g., gpt-4o, claude-sonnet-4-20250514" autocomplete="off">
-        <p class="setting-hint">AI model to use for transcribing recordings and refining text into points with tags.</p>
+        <input type="text" id="transcriptmodel" placeholder="e.g., gpt-4o, gemini-pro, llama3" autocomplete="off">
+        <p class="setting-hint">Exact model name supported by your API endpoint.</p>
       </div>
       <div class="setting-group">
         <label for="researchmodel">Deep Research Model</label>

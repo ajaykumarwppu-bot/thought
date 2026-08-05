@@ -1,1 +1,1 @@
-Nothing needs to be added to .gitignore since the changes only include source/config files (.md and .js) without any build artifacts, dependencies, or temporary files.
+Nothing needs to be added to .gitignore since only source files (app.js, index.html) were modified and there are no build artifacts, dependencies, or temporary files in the changes.
