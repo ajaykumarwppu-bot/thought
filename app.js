@@ -886,17 +886,19 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
 
 /* ============================== settings panel ============================== */
 const SETTINGS_KEY='rhizome_settings';
-let settings={apiKey:'',model:''};
+let settings={apiKey:'',apiBaseUrl:'',model:''};
 
 function loadSettings(){
   const s=localStorage.getItem(SETTINGS_KEY);
   if(s){try{settings=JSON.parse(s);}catch(e){}}
   $('#apikey').value=settings.apiKey||'';
+  $('#apibaseurl').value=settings.apiBaseUrl||'';
   $('#model').value=settings.model||'';
 }
 
 function saveSettings(){
   settings.apiKey=$('#apikey').value.trim();
+  settings.apiBaseUrl=$('#apibaseurl').value.trim();
   settings.model=$('#model').value.trim();
   localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
   toast('Settings saved successfully','ok');
@@ -938,6 +940,7 @@ function blobToBase64(blob){
 // Send audio to AI for transcription AND refinement in SINGLE API call
 async function sendAudioToAI(audioBlob){
   const apiKey=settings.apiKey;
+  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
   const model=settings.model||'gpt-4o';
   
   if(!apiKey){
@@ -947,9 +950,8 @@ async function sendAudioToAI(audioBlob){
   // Convert audio blob to base64
   const base64Audio=await blobToBase64(audioBlob);
   
-  // Standard OpenAI-Compatible Endpoint
-  // Note: This assumes your provider uses the standard /chat/completions endpoint
-  const endpoint='https://api.openai.com/v1/chat/completions';
+  // Build endpoint from base URL
+  const endpoint=`${apiBaseUrl}/chat/completions`;
   
   const headers={
     'Content-Type':'application/json',
@@ -1027,6 +1029,7 @@ Do not include any other text outside the JSON.`;
 // Send text to AI for refinement ONLY in SINGLE API call
 async function sendTextToAI(text){
   const apiKey=settings.apiKey;
+  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
   const model=settings.model||'gpt-4o';
   
   if(!apiKey){
@@ -1045,8 +1048,8 @@ Return ONLY the refined text, no explanations or additional commentary.`;
 
   const userPrompt=`Refine this text into a clear, structured format:\n\n${text}`;
   
-  // Standard OpenAI-Compatible Endpoint
-  const endpoint='https://api.openai.com/v1/chat/completions';
+  // Build endpoint from base URL
+  const endpoint=`${apiBaseUrl}/chat/completions`;
   
   const headers={
     'Content-Type':'application/json',
