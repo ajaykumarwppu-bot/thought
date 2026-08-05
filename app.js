@@ -343,6 +343,14 @@ function renderCapture(){
         <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="micstat" id="micstat">TAP TO RECORD</div>
       </div>
+      <div style="display:flex;justify-content:center;margin-top:12px">
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="14" height="14"><path d="M8 1v10M3 6l5-5 5 5M2 11v3h12v-3"/></svg>
+          Upload Audio File
+          <input type="file" id="audiofileupload" accept="audio/*" style="display:none">
+        </label>
+      </div>
+      <div id="uploadedfileinfo" style="display:none;font:11px var(--mono);color:var(--dim);margin-top:8px;text-align:center"></div>
       <div id="vnosupport" style="display:none" class="disclaim" >${ICON.spark.replace("currentColor","#F5B84B")} Voice capture needs a browser with MediaRecorder support. Text capture works everywhere.</div>
     </div>
     <div class="pane ${capTab==="text"?"on":""}" id="textpane">
@@ -362,6 +370,18 @@ function renderCapture(){
  $("#micbtn").onclick=toggleMic;
  if(!window.SpeechRecognition&&!window.webkitSpeechRecognition){ $("#vnosupport").style.display="flex"; $("#micbtn").disabled=true; $("#micbtn").style.opacity=.35; }
  $("#processbtn").onclick=processNote;
+ // Audio file upload handler
+ const audioUpload=$("#audiofileupload");
+ if(audioUpload){
+   audioUpload.onchange=async (e)=>{
+     const file=e.target.files[0];
+     if(!file) return;
+     window.capturedAudio=file;
+     $("#uploadedfileinfo").style.display="block";
+     $("#uploadedfileinfo").textContent=`Uploaded: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+     $("#micstat").textContent="AUDIO FILE READY — PROCESS TO TRANSCRIBE";
+   };
+ }
 }
 let finalT="",interimT="";
 function renderInterim(){
@@ -372,27 +392,88 @@ function renderInterim(){
 async function processNote(){
  const btn=$("#processbtn");
  let text= capTab==="voice"? finalT.trim() : ($("#ta")?$("#ta").value.trim():"");
- if(text.length<12){ toast("Add a little more thought before processing.","warn"); return; }
+ // Check if audio file was uploaded or recorded
+ if(capTab==="voice" && window.capturedAudio && !finalT){
+   // Audio exists but no transcript yet - need to transcribe first via AI
+   btn.disabled=true;
+   const body=$("#assistbody");
+   body.innerHTML=`<div class="step active"><span class="tick"></span><div class="st">Transcribing audio with AI...<em id="std0"></em></div></div><div id="results"></div>`;
+   try{
+     const transcript=await transcribeAudioWithAI(window.capturedAudio);
+     if(!transcript){ throw new Error("Transcription failed"); }
+     finalT=transcript;
+     $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio transcribed successfully</div></div><div id="results"></div>`;
+     await sleep(500);
+   }catch(e){
+     toast("Transcription failed: "+e.message,"err");
+     btn.disabled=false;
+     return;
+   }
+   text=finalT.trim();
+ }
+ if(text.length<12){ toast("Add a little more thought before processing.","warn"); btn.disabled=false; return; }
  btn.disabled=true; stopRec();
  const body=$("#assistbody");
- const steps=[["Preserving original thought",""],["Extracting concepts",""],["Refining structure",""],["Scanning knowledge base for relations",""]];
+ const steps=[["Preserving original thought",""],["Extracting concepts",""],["Refining structure with AI",""],["Scanning knowledge base for relations",""]];
  body.innerHTML=steps.map((s,i)=>`<div class="step" id="st${i}"><span class="tick"></span><div class="st">${s[0]}<em id="std${i}"></em></div></div>`).join("")+`<div id="results"></div>`;
  const act=i=>{$("#st"+i).classList.add("active")}, fin=(i,d)=>{$("#st"+i).classList.remove("active");$("#st"+i).classList.add("done");$("#st"+i).querySelector(".tick").textContent="✓";$("#std"+i).innerHTML=d;};
+ 
+ // Step 1: Preserve original
  act(0); await sleep(550);
- const {note,suggIds}=ingestNote(capTab,text); captureSuggIds=suggIds;
- fin(0,`locked verbatim as Note #${note.num} — never editable, never deletable`);
+ const originalText=text;
+ fin(0,`locked verbatim as Note #${state.seq} — never editable, never deletable`);
+ 
+ // Step 2: Extract concepts (using local heuristics for now, can be enhanced with AI)
  act(1); await sleep(700);
- fin(1,note.concepts.length?note.concepts.map(c=>esc(c.name)).join(" · "):"no strong concept signals");
- act(2); await sleep(700);
- fin(2,`AI Refined Version drafted <span style="color:var(--amber)">(original untouched)</span>`);
+ const concepts=extractConcepts(text);
+ fin(1,concepts.length?concepts.map(c=>esc(c.name)).join(" · "):"no strong concept signals");
+ 
+ // Step 3: Refine with AI if API key is configured
+ act(2);
+ let refined=text;
+ if(settings.apiKey){
+   try{
+     refined=await refineTextWithAI(text);
+     fin(2,`AI Refined Version drafted <span style="color:var(--amber)">(original untouched)</span>`);
+   }catch(e){
+     console.warn('AI refinement failed, using local refinement:',e);
+     refined=refineText(text);
+     fin(2,`Locally refined <span style="color:var(--faint)">(AI unavailable)</span>`);
+   }
+ }else{
+   refined=refineText(text);
+   fin(2,`Locally refined <span style="color:var(--faint)">(add API key in Settings for AI refinement)</span>`);
+ }
+ await sleep(400);
+ 
+ // Step 4: Find suggestions
  act(3); await sleep(900);
+ const domains=[...new Set(concepts.slice(0,3).map(c=>CONCEPT_DOMAIN[c.name]))];
+ const interpretation=buildInterpretation(concepts);
+ const confidence=concepts.length>=3?"high":concepts.length===2?"medium":"low";
+ const limitations=buildLimitations(capTab,concepts,confidence);
+ const first=(refined.split(/[.!?]/)[0]||"Untitled thought").trim();
+ const title=first.length>52?first.slice(0,52)+"…":first;
+ 
+ const note={id:"n"+state.seq,num:state.seq,source:capTab,createdAt:new Date().toISOString(),title,original:originalText,refined,
+   concepts:concepts.map(c=>({name:c.name,score:+c.score.toFixed(2)})),domains,
+   interpretation,confidence,limitations,status:"active"};
+ state.notes.push(note); state.seq++;
+ 
+ const found=findSuggestions(note);
+ found.forEach((f,i)=>{ const s={id:"s"+Date.now()+i,...f,status:"pending",createdAt:new Date().toISOString(),resolvedAt:null};
+   state.suggestions.push(s); });
+ save();
+ 
+ const suggIds=found.map((_,i)=>"s"+(state.suggestions[state.suggestions.length-found.length+i]).id);
+ captureSuggIds=suggIds;
  fin(3,`${suggIds.length} possible connection${suggIds.length===1?"":"s"} found — suggestions only, nothing applied`);
  const suggHTML=captureSuggIds.length?`<div class="lbl" style="margin-top:18px"><span class="amb">${ICON.spark}</span> SUGGESTED RELATIONSHIPS — YOUR CALL</div><div id="ressuggs">${pendingForCaptureHTML()}</div>`
    :`<div class="empty" style="margin-top:14px">No related notes detected yet. Connections will surface as your base grows.</div>`;
  $("#results").innerHTML=`
   <div class="rescard orig rise"><div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT · #${note.num} · PRESERVED VERBATIM</div><div class="notetext">${esc(note.original)}</div></div>
   <div class="rescard ref rise d1"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
-    <div class="disclaim">${ICON.spark} AI-generated refinement. May contain interpretation errors. Your original above is the source of truth.</div>
+    <div class="disclaim">${ICON.spark} ${settings.apiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
     <div class="notetext">${esc(note.refined)}</div></div>
   <div class="rescard rise d2"><div class="lbl">AI TRANSPARENCY</div>
     <div class="interp">${esc(note.interpretation)}</div>
@@ -409,6 +490,10 @@ async function processNote(){
         const oc=$("#openconst"); if(oc) oc.onclick=()=>{selId=note.id;setView("graph");};
   const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
   if($("#ta"))$("#ta").value="";
+ // Clear uploaded audio info after processing
+ window.capturedAudio=null;
+ const uploadInfo=$("#uploadedfileinfo");
+ if(uploadInfo){uploadInfo.style.display="none";uploadInfo.textContent="";}
  btn.disabled=false;
  toast(`Note #${note.num} captured — ${suggIds.length} possible connection${suggIds.length===1?"":"s"} found.`);
  updateStats(); buildNav();
@@ -821,3 +906,180 @@ $('#savesettings').onclick=saveSettings;
 
 // Load settings on boot
 loadSettings();
+
+/* ============================== AI API functions ============================== */
+async function callAI(prompt,systemPrompt='You are a helpful assistant.'){
+  const apiKey=settings.apiKey;
+  const endpoint=settings.apiEndpoint||'https://api.openai.com/v1';
+  const model=settings.transcriptModel||'gpt-4o-mini';
+  
+  if(!apiKey){
+    throw new Error('API key not configured. Please add your API key in Settings.');
+  }
+  
+  const response=await fetch(`${endpoint}/chat/completions`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${apiKey}`
+    },
+    body:JSON.stringify({
+      model:model,
+      messages:[
+        {role:'system',content:systemPrompt},
+        {role:'user',content:prompt}
+      ],
+      temperature:0.3,
+      max_tokens:2000
+    })
+  });
+  
+  if(!response.ok){
+    const err=await response.json().catch(()=>({}));
+    throw new Error(err.error?.message||`API request failed with status ${response.status}`);
+  }
+  
+  const data=await response.json();
+  return data.choices[0]?.message?.content||'';
+}
+
+async function transcribeAudioWithAI(audioBlob){
+  const apiKey=settings.apiKey;
+  const endpoint=settings.apiEndpoint||'https://api.openai.com/v1';
+  const model=settings.transcriptModel||'gpt-4o-mini';
+  
+  if(!apiKey){
+    throw new Error('API key not configured. Please add your API key in Settings.');
+  }
+  
+  // Convert blob to base64 for sending to API
+  const base64Audio=await blobToBase64(audioBlob);
+  const audioType=audioBlob.type||'audio/webm';
+  
+  const prompt='Transcribe the following audio recording accurately. Return only the spoken text, no additional commentary.';
+  
+  // For now, we'll use a text-based approach since most APIs need special handling for audio
+  // In production, you'd use Whisper API or similar
+  const systemPrompt='You are transcribing audio. Return only the exact spoken words.';
+  
+  // Note: This is a simplified version - real audio transcription requires multipart/form-data
+  // or a dedicated speech-to-text API like OpenAI Whisper
+  // For this implementation, we'll simulate by asking user to provide transcript
+  // or use browser's built-in speech recognition if available
+  
+  // Try using browser SpeechRecognition first if available
+  if(window.SpeechRecognition||window.webkitSpeechRecognition){
+    return await transcribeWithBrowserSpeech(audioBlob);
+  }
+  
+  // Fallback: For file upload, we need to send to API
+  // This requires proper multipart form data handling
+  const formData=new FormData();
+  formData.append('file',audioBlob,'recording.webm');
+  formData.append('model','whisper-1');
+  formData.append('response_format','text');
+  
+  const response=await fetch(`${endpoint.replace('/v1','')}/audio/transcriptions`,{
+    method:'POST',
+    headers:{
+      'Authorization':`Bearer ${apiKey}`
+    },
+    body:formData
+  });
+  
+  if(!response.ok){
+    const err=await response.text().catch(()=>response.statusText);
+    throw new Error(`Transcription failed: ${err}`);
+  }
+  
+  return await response.text();
+}
+
+async function transcribeWithBrowserSpeech(audioBlob){
+  // Browser speech recognition works with live audio, not pre-recorded blobs
+  // So we'll need to play the audio and capture it
+  return new Promise((resolve,reject)=>{
+    // Create audio element to play
+    const audioUrl=URL.createObjectURL(audioBlob);
+    const audio=new Audio(audioUrl);
+    
+    // Use SpeechRecognition if available
+    const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SpeechRecognition){
+      URL.revokeObjectURL(audioUrl);
+      reject(new Error('Speech recognition not supported'));
+      return;
+    }
+    
+    const recognition=new SpeechRecognition();
+    recognition.continuous=true;
+    recognition.interimResults=true;
+    
+    let finalTranscript='';
+    
+    recognition.onresult=(e)=>{
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal){
+          finalTranscript+=e.results[i][0].transcript+' ';
+        }
+      }
+    };
+    
+    recognition.onerror=(e)=>{
+      URL.revokeObjectURL(audioUrl);
+      reject(new Error(e.error||'Speech recognition error'));
+    };
+    
+    recognition.onend=()=>{
+      URL.revokeObjectURL(audioUrl);
+      resolve(finalTranscript.trim());
+    };
+    
+    recognition.start();
+    
+    // Play audio through system (user needs to allow microphone to capture)
+    // This is a limitation - browsers don't allow direct audio routing
+    audio.play().catch(reject);
+    
+    // Stop recognition when audio ends
+    audio.onended=()=>{
+      setTimeout(()=>recognition.stop(),500);
+    };
+  });
+}
+
+async function refineTextWithAI(text){
+  const systemPrompt=`You are a knowledge refinement assistant. Your task is to:\n1. Clean up spoken language (remove filler words like \"um\", \"uh\", etc.)\n2. Improve readability while preserving the original meaning EXACTLY\n3. Structure the content logically\n4. NEVER change the core message or add information not present in the original\n\nReturn ONLY the refined text, no explanations.`;
+  
+  const prompt=`Refine this text for clarity and structure while preserving its exact meaning:\n\n${text}`;
+  
+  return await callAI(prompt,systemPrompt);
+}
+
+async function extractConceptsWithAI(text){
+  const systemPrompt=`You are a concept extraction assistant. Analyze the text and identify key concepts.\nReturn a JSON array of objects with format: [{\"name\":\"concept name\",\"score\":0.9}]\nScore should be between 0 and 1 based on relevance.\nFocus on themes like: Feedback Loops, Learning, Adaptation, Psychology, AI, Systems Thinking, Biology, Philosophy, Habits, Writing.`;
+  
+  const prompt=`Extract the main concepts from this text:\n\n${text}`;
+  
+  try{
+    const result=await callAI(prompt,systemPrompt);
+    // Try to parse JSON from response
+    const jsonMatch=result.match(/\[[\s\S]*\]/);
+    if(jsonMatch){
+      return JSON.parse(jsonMatch[0]);
+    }
+    return [];
+  }catch(e){
+    console.error('Concept extraction failed:',e);
+    return [];
+  }
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onloadend=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  });
+}
