@@ -922,6 +922,19 @@ loadSettings();
 
 /* ============================== AI API functions ============================== */
 
+// Utility: Convert Blob to Base64
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onloadend=()=>{
+      const base64String=reader.result.split(',')[1]; // Remove data:image/webm;base64, prefix
+      resolve(base64String);
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 // Send audio to AI for transcription AND refinement in SINGLE API call
 async function sendAudioToAI(audioBlob){
   const apiKey=settings.apiKey;
@@ -934,11 +947,16 @@ async function sendAudioToAI(audioBlob){
   // Convert audio blob to base64
   const base64Audio=await blobToBase64(audioBlob);
   
-  // Build endpoint - OpenAI standard format
-  let endpoint='https://api.openai.com/v1/chat/completions';
-  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  // Standard OpenAI-Compatible Endpoint
+  // Note: This assumes your provider uses the standard /chat/completions endpoint
+  const endpoint='https://api.openai.com/v1/chat/completions';
   
-  // System prompt for audio: transcribe EXACTLY then refine to structured format
+  const headers={
+    'Content-Type':'application/json',
+    'Authorization':`Bearer ${apiKey}`
+  };
+  
+  // Universal System Prompt for Transcription + Refinement
   const systemPrompt=`You are a knowledge processing assistant. You will receive an audio file.
 Your task is to:
 1. First, generate an EXACT verbatim transcript of the audio (preserve all words, including filler words like "um", "uh", etc.)
@@ -956,11 +974,15 @@ Return your response in this EXACT JSON format:
 
 Do not include any other text outside the JSON.`;
 
+  // Construct payload compatible with OpenAI-standard multimodal models
   let body={
     model:model,
     messages:[
       {role:'system',content:systemPrompt},
-      {role:'user',content:[{type:'text',text:'Please transcribe and refine this audio recording.'},{type:'input_audio',audio:{data:base64Audio,format:'webm'}}]}
+      {role:'user',content:[
+        {type:'text',text:'Please transcribe and refine this audio recording.'},
+        {type:'input_audio',audio:{data:base64Audio,format:'webm'}}
+      ]}
     ],
     temperature:0,
     max_tokens:4000
@@ -1023,11 +1045,23 @@ Return ONLY the refined text, no explanations or additional commentary.`;
 
   const userPrompt=`Refine this text into a clear, structured format:\n\n${text}`;
   
-  // Build endpoint - OpenAI standard format
-  let endpoint='https://api.openai.com/v1/chat/completions';
-  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
+  // Standard OpenAI-Compatible Endpoint
+  const endpoint='https://api.openai.com/v1/chat/completions';
   
-  let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.3,max_tokens:2000};
+  const headers={
+    'Content-Type':'application/json',
+    'Authorization':`Bearer ${apiKey}`
+  };
+  
+  let body={
+    model:model,
+    messages:[
+      {role:'system',content:systemPrompt},
+      {role:'user',content:userPrompt}
+    ],
+    temperature:0.3,
+    max_tokens:2000
+  };
 
   const response=await fetch(endpoint,{
     method:'POST',
