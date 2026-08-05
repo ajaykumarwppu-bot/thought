@@ -343,8 +343,7 @@ function renderCapture(){
         <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="micstat" id="micstat">TAP TO RECORD</div>
       </div>
-      <div class="vtranscript" id="vtranscript"><span class="empty">Live transcript appears here…</span></div>
-      <div id="vnosupport" style="display:none" class="disclaim" >${ICON.spark.replace("currentColor","#F5B84B")} Voice capture needs Chrome or Edge (Web Speech API). Text capture works everywhere.</div>
+      <div id="vnosupport" style="display:none" class="disclaim" >${ICON.spark.replace("currentColor","#F5B84B")} Voice capture needs a browser with MediaRecorder support. Text capture works everywhere.</div>
     </div>
     <div class="pane ${capTab==="text"?"on":""}" id="textpane">
       <textarea class="ta" id="ta" placeholder="Write the thought exactly as it is — unpolished is fine. The assistant refines a copy, never the original."></textarea>
@@ -407,9 +406,9 @@ async function processNote(){
     <button class="btn btn-ghost btn-sm" id="openconst">${ICON.graph} Open in Constellation</button>
     ${pendingCount()?`<button class="btn btn-amber btn-sm" id="openrev">Review queue (${pendingCount()})</button>`:""}
   </div>`;
- const oc=$("#openconst"); if(oc) oc.onclick=()=>{selId=note.id;setView("graph");};
- const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
- finalT="";interimT=""; if($("#ta"))$("#ta").value="";
+        const oc=$("#openconst"); if(oc) oc.onclick=()=>{selId=note.id;setView("graph");};
+  const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
+  if($("#ta"))$("#ta").value="";
  btn.disabled=false;
  toast(`Note #${note.num} captured — ${suggIds.length} possible connection${suggIds.length===1?"":"s"} found.`);
  updateStats(); buildNav();
@@ -729,24 +728,50 @@ function loop(now){
 }
 
 /* ============================== voice ============================== */
-let rec=null,recOn=false;
-function toggleMic(){
- const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return;
- if(!rec){
-   rec=new SR(); rec.continuous=true; rec.interimResults=true; rec.lang="en-US";
-   rec.onresult=e=>{interimT="";for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)finalT+=r[0].transcript+" ";else interimT+=r[0].transcript;}renderInterim();};
-   rec.onend=()=>{if(recOn){try{rec.start()}catch(e){}}};
-   rec.onerror=e=>{if(e.error==="not-allowed"){stopRec();toast("Microphone permission denied — use text capture.","err");}else if(e.error!=="no-speech"){toast("Voice error: "+e.error,"warn");}};
- }
- if(!recOn){recOn=true;finalT="";interimT="";try{rec.start()}catch(e){}
-   $("#micbtn").classList.add("live");$("#micwrap").classList.add("live-ui");$("#micstat").textContent="LISTENING — TAP TO STOP";
- } else stopRec();
+let mediaRecorder=null,recOn=false,audioChunks=[];
+async function toggleMic(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    $("#vnosupport").style.display="flex";
+    $("#micbtn").disabled=true;
+    $("#micbtn").style.opacity=.35;
+    return;
+  }
+  if(!recOn){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      mediaRecorder=new MediaRecorder(stream);
+      audioChunks=[];
+      mediaRecorder.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data);};
+      mediaRecorder.onstop=()=>{
+        const audioBlob=new Blob(audioChunks,{type:"audio/webm"});
+        // Store the audio blob for later processing
+        window.capturedAudio=audioBlob;
+        $("#micstat").textContent="AUDIO RECORDED — TAP TO RECORD AGAIN OR PROCESS";
+      };
+      mediaRecorder.start();
+      recOn=true;
+      $("#micbtn").classList.add("live");
+      $("#micwrap").classList.add("live-ui");
+      $("#micstat").textContent="RECORDING — TAP TO STOP";
+      // Hide the transcript box since we don't do live transcription
+      $("#vtranscript").style.display="none";
+    }catch(e){
+      toast("Microphone permission denied — use text capture.","err");
+      stopRec();
+    }
+  }else{
+    stopRec();
+  }
 }
 function stopRec(){
- recOn=false; if(rec){try{rec.stop()}catch(e){}}
- const mb=$("#micbtn"),mw=$("#micwrap"),ms=$("#micstat");
- if(mb)mb.classList.remove("live"); if(mw)mw.classList.remove("live-ui"); if(ms)ms.textContent="TAP TO RECORD";
- renderInterim();
+  recOn=false;
+  if(mediaRecorder&&mediaRecorder.state!=="stopped"){
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t=>t.stop());
+  }
+  const mb=$("#micbtn"),mw=$("#micwrap"),ms=$("#micstat");
+  if(mb)mb.classList.remove("live");
+  if(mw)mw.classList.remove("live-ui");
 }
 
 /* ============================== boot ============================== */
