@@ -886,20 +886,18 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
 
 /* ============================== settings panel ============================== */
 const SETTINGS_KEY='rhizome_settings';
-let settings={apiKey:'',transcriptModel:'',researchModel:''};
+let settings={apiKey:'',model:''};
 
 function loadSettings(){
   const s=localStorage.getItem(SETTINGS_KEY);
   if(s){try{settings=JSON.parse(s);}catch(e){}}
   $('#apikey').value=settings.apiKey||'';
-  $('#transcriptmodel').value=settings.transcriptModel||'';
-  $('#researchmodel').value=settings.researchModel||'';
+  $('#model').value=settings.model||'';
 }
 
 function saveSettings(){
   settings.apiKey=$('#apikey').value.trim();
-  settings.transcriptModel=$('#transcriptmodel').value.trim();
-  settings.researchModel=$('#researchmodel').value.trim();
+  settings.model=$('#model').value.trim();
   localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
   toast('Settings saved successfully','ok');
   closeSettingsPanel();
@@ -927,8 +925,7 @@ loadSettings();
 // Send audio to AI for transcription AND refinement in SINGLE API call
 async function sendAudioToAI(audioBlob){
   const apiKey=settings.apiKey;
-  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
-  const model=settings.transcriptModel||'gpt-4o-mini';
+  const model=settings.model||'gpt-4o';
   
   if(!apiKey){
     throw new Error('API key not configured. Please add your API key in Settings.');
@@ -937,12 +934,9 @@ async function sendAudioToAI(audioBlob){
   // Convert audio blob to base64
   const base64Audio=await blobToBase64(audioBlob);
   
-  // Build endpoint from base URL - works with ANY provider
-  let endpoint=`${apiBaseUrl}/chat/completions`;
-  let headers={'Content-Type':'application/json'};
-  if(apiKey&&apiKey.trim()!==''){
-    headers['Authorization']=`Bearer ${apiKey}`;
-  }
+  // Build endpoint - OpenAI standard format
+  let endpoint='https://api.openai.com/v1/chat/completions';
+  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
   
   // System prompt for audio: transcribe EXACTLY then refine to structured format
   const systemPrompt=`You are a knowledge processing assistant. You will receive an audio file.
@@ -962,10 +956,7 @@ Return your response in this EXACT JSON format:
 
 Do not include any other text outside the JSON.`;
 
-  let body;
-  
-  // Standard OpenAI-compatible format - works with ANY provider that supports chat/completions with audio
-  body={
+  let body={
     model:model,
     messages:[
       {role:'system',content:systemPrompt},
@@ -988,7 +979,7 @@ Do not include any other text outside the JSON.`;
   
   const data=await response.json();
   
-  // Extract response based on provider
+  // Extract response
   let responseText='';
   if(data.choices&&data.choices[0]?.message){
     responseText=data.choices[0].message.content||'';
@@ -1014,42 +1005,29 @@ Do not include any other text outside the JSON.`;
 // Send text to AI for refinement ONLY in SINGLE API call
 async function sendTextToAI(text){
   const apiKey=settings.apiKey;
-  const model=settings.transcriptModel||settings.researchModel||'gpt-4o-mini';
+  const model=settings.model||'gpt-4o';
   
   if(!apiKey){
     throw new Error('API key not configured. Please add your API key in Settings.');
   }
   
-  // System prompt for text: ONLY refine to structured format (NO transcript)
+  // System prompt for text: ONLY refine to structured format
   const systemPrompt=`You are a knowledge refinement assistant. You will receive text input.
 Your task is to:
-- Rewrite the text into a clean, structured, point-wise format
+- Rewrite the text into a clean, structured format
 - Remove unnecessary fluff, filler words, and repetitions
 - Organize ideas logically with proper paragraphs
 - Preserve the EXACT meaning without adding or removing any core concepts
-- Do NOT create a transcript - only provide the refined version
 
 Return ONLY the refined text, no explanations or additional commentary.`;
 
   const userPrompt=`Refine this text into a clear, structured format:\n\n${text}`;
   
-  // Call the generic AI function
-  return await callAIWithPrompt(userPrompt,systemPrompt,model);
-}
-
-// Generic AI call with custom prompt and model
-async function callAIWithPrompt(prompt,systemPrompt,model){
-  const apiKey=settings.apiKey;
-  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
+  // Build endpoint - OpenAI standard format
+  let endpoint='https://api.openai.com/v1/chat/completions';
+  let headers={'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`};
   
-  // Build endpoint from base URL - works with ANY provider
-  let endpoint=`${apiBaseUrl}/chat/completions`;
-  let headers={'Content-Type':'application/json'};
-  if(apiKey&&apiKey.trim()!==''){
-    headers['Authorization']=`Bearer ${apiKey}`;
-  }
-  
-  let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.3,max_tokens:2000};
+  let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:userPrompt}],temperature:0.3,max_tokens:2000};
 
   const response=await fetch(endpoint,{
     method:'POST',
@@ -1063,47 +1041,10 @@ async function callAIWithPrompt(prompt,systemPrompt,model){
   }
 
   const data=await response.json();
-  // Handle standard OpenAI-compatible response format
+  // Handle standard OpenAI response format
   if(data.choices&&data.choices[0]?.message){
     return data.choices[0].message.content||'';
   }
   return '';
 }
 
-
-async function callAI(prompt,systemPrompt='You are a helpful assistant.'){
-  const apiKey=settings.apiKey;
-  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
-  const model=settings.transcriptModel||settings.researchModel||'gpt-4o-mini';
-
-  if(!apiKey){
-    throw new Error('API key not configured. Please add your API key in Settings.');
-  }
-
-  // Build endpoint from base URL - works with ANY provider
-  let endpoint=`${apiBaseUrl}/chat/completions`;
-  let headers={'Content-Type':'application/json'};
-  if(apiKey&&apiKey.trim()!==''){
-    headers['Authorization']=`Bearer ${apiKey}`;
-  }
-  
-  let body={model,messages:[{role:'system',content:systemPrompt},{role:'user',content:prompt}],temperature:0.3,max_tokens:2000};
-
-  const response=await fetch(endpoint,{
-    method:'POST',
-    headers,
-    body:JSON.stringify(body)
-  });
-
-  if(!response.ok){
-    const err=await response.json().catch(()=>({}));
-    throw new Error(err.error?.message||`API request failed with status ${response.status}`);
-  }
-
-  const data=await response.json();
-  // Handle standard OpenAI-compatible response format
-  if(data.choices&&data.choices[0]?.message){
-    return data.choices[0].message.content||'';
-  }
-  return '';
-}

@@ -45,18 +45,13 @@
     <div class="settings-body">
       <div class="setting-group">
         <label for="apikey">API Key</label>
-        <input type="text" id="apikey" placeholder="Enter your API key (any provider)" autocomplete="off">
-        <p class="setting-hint">Your API key is stored locally. Works with any OpenAI-compatible provider.</p>
-      </div>
-      <div class="setting-group">
-        <label for="apibaseurl">API Base URL</label>
-        <input type="text" id="apibaseurl" placeholder="e.g., https://api.openai.com/v1" value="https://api.openai.com/v1" autocomplete="off">
-        <p class="setting-hint">The base URL of your API provider's endpoint.</p>
+        <input type="text" id="apikey" placeholder="Enter your API key" autocomplete="off">
+        <p class="setting-hint">Your API key is stored locally.</p>
       </div>
       <div class="setting-group">
         <label for="model">Model Name</label>
-        <input type="text" id="model" placeholder="e.g., gpt-4o, gemini-pro, llama3" autocomplete="off">
-        <p class="setting-hint">Exact model name supported by your API endpoint.</p>
+        <input type="text" id="model" placeholder="e.g., gpt-4o, gemini-2.5-pro, llama3" autocomplete="off">
+        <p class="setting-hint">Model to use for transcription and refinement.</p>
       </div>
       <button class="btn btn-primary" id="savesettings">Save Settings</button>
     </div>
