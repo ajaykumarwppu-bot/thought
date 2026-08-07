@@ -1140,8 +1140,15 @@ async function waitForFileActive(fileUri, apiKey){
   for(let i=0;i<maxAttempts;i++){
     await sleep(pollInterval);
     
-    // Ensure fileUri has the 'files/' prefix
-    const uri=fileUri.startsWith('files/')?fileUri:`files/${fileUri}`;
+    // fileUri is now a full HTTPS URL, extract the path part for polling
+    let uri=fileUri;
+    if(fileUri.includes('generativelanguage.googleapis.com/v1beta/')){
+      // Extract everything after 'v1beta/' (e.g., "files/xyz")
+      uri=fileUri.split('v1beta/')[1];
+    }else if(!uri.startsWith('files/')){
+      uri=`files/${uri}`;
+    }
+    
     const fileEndpoint=`https://generativelanguage.googleapis.com/v1beta/${uri}?key=${apiKey}`;
     const response=await fetch(fileEndpoint,{method:'GET'});
     
@@ -1181,8 +1188,8 @@ async function sendAudioToAI(audioBlob){
   
   // Step 1: Upload file to Google Files API
   const uploadedFile=await uploadFileToGoogle(file,apiKey);
-  const fileUri=uploadedFile.name; // This is the file URI (e.g., "files/abc123...")
-  
+  /* IMPORTANT: The generateContent API requires a FULL HTTPS URI, not just "files/xyz" */
+  const fileUri=`https://generativelanguage.googleapis.com/v1beta/${uploadedFile.name}`; // Full HTTPS URI required by generateContent
   // Step 2: Wait for file state to become ACTIVE
   const activeFile=await waitForFileActive(fileUri,apiKey);
   
@@ -1225,7 +1232,7 @@ Do not include any other text outside the JSON object.`;
     contents:[{
       parts:[
         {text:systemPrompt},
-        {file_data:{file_uri:fileUri,mime_type:'audio/webm'}}
+        {file_data:{file_uri:activeFile.name,mime_type:'audio/webm'}}
       ]
     }],
     generationConfig:{
