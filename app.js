@@ -1051,7 +1051,14 @@ function blobToBase64(blob){
 
 // Upload file to Google Files API and wait for it to become ACTIVE
 async function uploadFileToGoogle(file, apiKey){
+  // Validate API key format before making request
+  if(!apiKey || apiKey.length < 30){
+    throw new Error('Invalid API key. Please check your Google API key in Settings.');
+  }
+  
   const uploadEndpoint=`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
+  
+  console.log('Uploading file to Google Files API...');
   
   // Create multipart upload body - metadata must be wrapped in 'file' object
   const metadata={
@@ -1092,11 +1099,31 @@ async function uploadFileToGoogle(file, apiKey){
       'Content-Type':'multipart/related; boundary='+boundary
     },
     body:fullBody
+  }).catch(err=>{
+    console.error('Network error during upload:',err);
+    throw new Error('Failed to connect to Google API. Please check your internet connection and API key.');
   });
   
   if(!response.ok){
-    const err=await response.json().catch(()=>({}));
-    throw new Error(err.error?.message||`File upload failed with status ${response.status}`);
+    let errorMsg=`File upload failed with status ${response.status}`;
+    try{
+      const err=await response.json();
+      if(err.error?.message){
+        errorMsg=err.error.message;
+      }
+    }catch(e){}
+    
+    // Provide helpful error messages based on status code
+    if(response.status===400){
+      errorMsg='Invalid request. Please verify your API key is correct and has the required permissions.';
+    }else if(response.status===401){
+      errorMsg='Authentication failed. Please check that your API key is valid.';
+    }else if(response.status===403){
+      errorMsg='Access denied. Your API key may not have permission to use the Files API.';
+    }else if(response.status===404){
+      errorMsg='Endpoint not found. Please verify your API key format is correct.';
+    }
+    throw new Error(errorMsg);
   }
   
   const data=await response.json();
