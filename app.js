@@ -1128,7 +1128,13 @@ async function uploadFileToGoogle(file, apiKey){
   
   const data=await response.json();
   // Response returns file object directly, extract the name (URI)
-  return data.file||data;
+  const fileObj=data.file||data;
+  // Ensure we return the full HTTPS URI for the file (without /v1beta/ in the path)
+  // Google Files API expects: https://generativelanguage.googleapis.com/files/<id>
+  if(fileObj.name && !fileObj.name.startsWith('https://')){
+    fileObj.name=`https://generativelanguage.googleapis.com/files/${fileObj.name.replace(/^files\//,'')}`;
+  }
+  return fileObj;
 }
 
 // Poll file state until it becomes ACTIVE
@@ -1142,9 +1148,9 @@ async function waitForFileActive(fileUri, apiKey){
     
     // fileUri is now a full HTTPS URL, extract the path part for polling
     let uri=fileUri;
-    if(fileUri.includes('generativelanguage.googleapis.com/v1beta/')){
-      // Extract everything after 'v1beta/' (e.g., "files/xyz")
-      uri=fileUri.split('v1beta/')[1];
+    if(fileUri.includes('generativelanguage.googleapis.com/files/')){
+      // Extract everything after 'files/' (e.g., "files/xyz")
+      uri='files/'+fileUri.split('files/')[1];
     }else if(!uri.startsWith('files/')){
       uri=`files/${uri}`;
     }
@@ -1161,6 +1167,11 @@ async function waitForFileActive(fileUri, apiKey){
     const data=await response.json();
     // Response returns file object directly at root level
     const fileObj=data.file||data;
+    
+    // Ensure fileObj.name is a full HTTPS URI (without /v1beta/ in the path)
+    if(fileObj && fileObj.name && !fileObj.name.startsWith('https://')){
+      fileObj.name=`https://generativelanguage.googleapis.com/files/${fileObj.name.replace(/^files\//,'')}`;
+    }
     
     if(fileObj&&fileObj.state==='ACTIVE'){
       return fileObj;
@@ -1189,7 +1200,8 @@ async function sendAudioToAI(audioBlob){
   // Step 1: Upload file to Google Files API
   const uploadedFile=await uploadFileToGoogle(file,apiKey);
   /* IMPORTANT: The generateContent API requires a FULL HTTPS URI, not just "files/xyz" */
-  const fileUri=`https://generativelanguage.googleapis.com/v1beta/${uploadedFile.name}`; // Full HTTPS URI required by generateContent
+  // uploadedFile.name is already a full HTTPS URI from uploadFileToGoogle
+  const fileUri=uploadedFile.name; // Full HTTPS URI required by generateContent
   // Step 2: Wait for file state to become ACTIVE
   const activeFile=await waitForFileActive(fileUri,apiKey);
   
