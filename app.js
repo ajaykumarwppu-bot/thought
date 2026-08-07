@@ -1205,87 +1205,107 @@ async function sendAudioToAI(audioBlob){
   // Step 2: Wait for file state to become ACTIVE
   const activeFile=await waitForFileActive(fileUri,apiKey);
   
-  // Step 3: Use the file URI in generateContent request
+  // Step 3: FIRST API CALL - Extract COMPLETE transcript ONLY (no refinement)
   const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  // Enhanced System Prompt for complete transcript extraction and structural refinement
-  const systemPrompt=`You are an expert transcription and knowledge refinement assistant. You will receive an audio file.
-Your task is to perform TWO distinct operations:
+  // Focused system prompt for MAXIMUM transcript completeness
+  const transcriptPrompt=`You are a professional transcription assistant. Your ONLY task is to transcribe the audio file word-for-word.
+CRITICAL REQUIREMENTS:
+- Transcribe EVERY single word from start to finish without exception
+- Include ALL filler words (um, uh, like, you know, etc.), false starts, repetitions, and stutters exactly as spoken
+- Do NOT summarize, paraphrase, condense, or omit ANY portion of the audio
+- Do NOT add any commentary, analysis, or structured formatting
+- Continue transcribing until the audio ends completely
+- If the audio is long, use your full token capacity to capture everything
+- Return ONLY the raw transcript text, nothing else
 
-**TASK 1: COMPLETE VERBATIM TRANSCRIPT**
-Generate an EXACT, word-for-word transcript of the entire audio content:
-- Include EVERY word spoken, including filler words ("um", "uh", "like", "you know", etc.)
-- Preserve all false starts, repetitions, and speech disfluencies exactly as spoken
-- Do NOT summarize, paraphrase, or omit ANY portion of the audio
-- Capture the complete audio from start to finish without truncation
-- Maintain the natural flow and rhythm of spoken language
+Your output must be the complete verbatim transcript of the entire audio.`;
 
-**TASK 2: STRUCTURED REFINEMENT WITH POINTS AND PARTS**
-Create a refined, structured version that transforms the raw transcript into organized knowledge:
-- Organize content into clear PARTS (major sections/themes) and POINTS (specific ideas within each part)
-- Remove all filler words, false starts, and verbal tics
-- Structure ideas hierarchically with logical flow between concepts
-- Use numbered points, bullet points, and clear paragraph breaks
-- Label each major section with descriptive headers (Part 1, Part 2, etc.)
-- Preserve the EXACT meaning and core ideas without adding external information
-- Extract and highlight key insights, conclusions, and actionable takeaways
-- Ensure the refined version reads like polished written content while maintaining fidelity to the original thought
-
-Return your response in this EXACT JSON format:
-{
-  "transcript": "the complete verbatim transcript here - every single word from the audio",
-  "refined": "PART 1: [Title]\n• Point 1: [Clear statement]\n• Point 2: [Clear statement]\n\nPART 2: [Title]\n• Point 1: [Clear statement]\n..."
-}
-
-Do not include any other text outside the JSON object.`;
-
-  // Construct payload for Google Generative AI using file URI
-  const body={
+  // First call: transcript only with maximum tokens
+  const transcriptBody={
     contents:[{
       parts:[
-        {text:systemPrompt},
+        {text:transcriptPrompt},
         {file_data:{file_uri:activeFile.name,mime_type:'audio/webm'}}
       ]
     }],
     generationConfig:{
       temperature:0,
-      maxOutputTokens:8192,
-      responseMimeType:'application/json'
+      maxOutputTokens:32768,
+      responseMimeType:'text/plain'
     }
   };
   
-  const response=await fetch(endpoint,{
+  console.log('AI Step 1/2: Extracting complete transcript...');
+  const transcriptResponse=await fetch(endpoint,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
+    body:JSON.stringify(transcriptBody)
   });
   
-  if(!response.ok){
-    const err=await response.json().catch(()=>({}));
-    throw new Error(err.error?.message||`API request failed with status ${response.status}`);
+  if(!transcriptResponse.ok){
+    const err=await transcriptResponse.json().catch(()=>({}));
+    throw new Error(err.error?.message||`Transcript API request failed with status ${transcriptResponse.status}`);
   }
   
-  const data=await response.json();
-  
-  // Extract response from Google format
-  let responseText='';
-  if(data.candidates&&data.candidates[0]?.content?.parts){
-    responseText=data.candidates[0].content.parts.map(p=>p.text).join('')||'';
+  const transcriptData=await transcriptResponse.json();
+  let transcript='';
+  if(transcriptData.candidates&&transcriptData.candidates[0]?.content?.parts){
+    transcript=transcriptData.candidates[0].content.parts.map(p=>p.text).join('')||'';
   }
   
-  // Parse JSON from response
-  try{
-    const jsonMatch=responseText.match(/\{[\s\S]*\}/);
-    if(jsonMatch){
-      const result=JSON.parse(jsonMatch[0]);
-      return {transcript:result.transcript||'',refined:result.refined||''};
+  if(!transcript||transcript.trim()===''){
+    throw new Error('AI returned empty transcript');
+  }
+  
+  console.log(`AI Step 1/2: Transcript extracted (${transcript.length} chars)`);
+  
+  // Step 4: SECOND API CALL - Refine the transcript (separate call)
+  const refinePrompt=`You are a knowledge refinement assistant. You will receive a raw transcript.
+Your task is to transform it into a clean, structured version:
+- Organize content into clear PARTS (major themes) and POINTS (specific ideas)
+- Remove all filler words, false starts, repetitions, and verbal tics
+- Structure ideas hierarchically with logical flow
+- Use numbered points, bullet points, and clear paragraph breaks
+- Label each major section with descriptive headers (Part 1, Part 2, etc.)
+- Preserve the EXACT meaning without adding external information
+- Extract key insights and conclusions
+
+Return ONLY the refined text, no explanations.`;
+
+  const refineBody={
+    contents:[{
+      parts:[
+        {text:refinePrompt},
+        {text:`Refine this transcript:\n\n${transcript}`}
+      ]
+    }],
+    generationConfig:{
+      temperature:0.3,
+      maxOutputTokens:8192
     }
-  }catch(e){
-    console.warn('Could not parse JSON from AI response, using fallback');
+  };
+  
+  console.log('AI Step 2/2: Refining transcript into structured format...');
+  const refineResponse=await fetch(endpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(refineBody)
+  });
+  
+  let refined='';
+  if(refineResponse.ok){
+    const refineData=await refineResponse.json();
+    if(refineData.candidates&&refineData.candidates[0]?.content?.parts){
+      refined=refineData.candidates[0].content.parts.map(p=>p.text).join('')||'';
+      console.log(`AI Step 2/2: Refinement complete (${refined.length} chars)`);
+    }
+  }else{
+    console.warn('Refinement call failed, using transcript as fallback');
+    refined=transcript;
   }
   
-  // Fallback: treat entire response as transcript, no refinement
-  return {transcript:responseText,refined:responseText};
+  return {transcript,refined};
 }
 
 
