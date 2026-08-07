@@ -1106,7 +1106,8 @@ async function uploadFileToGoogle(file, apiKey){
 
 // Poll file state until it becomes ACTIVE
 async function waitForFileActive(fileUri, apiKey){
-  const maxAttempts=60;
+  // 10 minutes = 600 seconds, with 2 second intervals = 300 attempts
+  const maxAttempts=300;
   const pollInterval=2000;
   
   for(let i=0;i<maxAttempts;i++){
