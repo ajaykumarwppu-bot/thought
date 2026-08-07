@@ -1100,34 +1100,43 @@ async function uploadFileToGoogle(file, apiKey){
   }
   
   const data=await response.json();
-  return data.file;
+  // Response returns file object directly, extract the name (URI)
+  return data.file||data;
 }
 
 // Poll file state until it becomes ACTIVE
 async function waitForFileActive(fileUri, apiKey){
-  const maxAttempts=30;
+  const maxAttempts=60;
   const pollInterval=2000;
   
   for(let i=0;i<maxAttempts;i++){
     await sleep(pollInterval);
     
-    const fileEndpoint=`https://generativelanguage.googleapis.com/v1beta/${fileUri}?key=${apiKey}`;
+    // Ensure fileUri has the 'files/' prefix
+    const uri=fileUri.startsWith('files/')?fileUri:`files/${fileUri}`;
+    const fileEndpoint=`https://generativelanguage.googleapis.com/v1beta/${uri}?key=${apiKey}`;
     const response=await fetch(fileEndpoint,{method:'GET'});
     
     if(!response.ok){
-      throw new Error(`Failed to check file state: ${response.status}`);
+      const errData=await response.json().catch(()=>({}));
+      console.warn(`Poll attempt ${i+1} failed:`,errData);
+      continue;
     }
     
     const data=await response.json();
-    if(data.file&&data.file.state==='ACTIVE'){
-      return data.file;
+    // Response returns file object directly at root level
+    const fileObj=data.file||data;
+    
+    if(fileObj&&fileObj.state==='ACTIVE'){
+      return fileObj;
     }
-    if(data.file&&data.file.state==='FAILED'){
-      throw new Error('File processing failed on Google servers');
+    if(fileObj&&fileObj.state==='FAILED'){
+      throw new Error('File processing failed on Google servers: '+(fileObj.error?.message||'Unknown error'));
     }
+    console.log(`Poll attempt ${i+1}: File state is ${fileObj?.state||'unknown'}, waiting...`);
   }
   
-  throw new Error('Timeout waiting for file to become active');
+  throw new Error('Timeout waiting for file to become active. The file may still be processing.');
 }
 
 // Send audio to AI for transcription AND refinement using Google Files API
