@@ -44,20 +44,26 @@
     </div>
     <div class="settings-body">
       <div class="setting-group">
-        <label for="apikey">API Key</label>
-        <input type="text" id="apikey" placeholder="Enter your API key" autocomplete="off">
-        <p class="setting-hint">Your API key is stored locally.</p>
+        <label for="googleapikey">Google API Key</label>
+        <input type="text" id="googleapikey" placeholder="Enter your Google API key" autocomplete="off">
+        <p class="setting-hint">Your Google API key is stored locally. Get it from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>.</p>
       </div>
+      
+      <div class="setting-section-title">Model Configuration</div>
+      <p class="setting-hint">Configure separate models for different tasks:</p>
+      
       <div class="setting-group">
-        <label for="apibaseurl">API Base URL</label>
-        <input type="text" id="apibaseurl" placeholder="e.g., https://api.openai.com/v1" autocomplete="off">
-        <p class="setting-hint">Base URL for your AI provider (OpenAI, Groq, Ollama, etc.).</p>
+        <label for="transcriptmodel">Transcription & Refinement Model</label>
+        <input type="text" id="transcriptmodel" placeholder="e.g., gemini-2.0-flash-exp" autocomplete="off">
+        <p class="setting-hint">Model used for audio transcription and text refinement. Recommended: gemini-2.0-flash-exp or gemini-1.5-pro</p>
       </div>
+      
       <div class="setting-group">
-        <label for="model">Model Name</label>
-        <input type="text" id="model" placeholder="e.g., gpt-4o, gemini-2.5-pro, llama3" autocomplete="off">
-        <p class="setting-hint">Model to use for transcription and refinement.</p>
+        <label for="researchmodel">Deep Research Model</label>
+        <input type="text" id="researchmodel" placeholder="e.g., gemini-2.0-flash-exp" autocomplete="off">
+        <p class="setting-hint">Model used for concept extraction, interpretation, and connection suggestions. Recommended: gemini-2.0-flash-exp or gemini-1.5-pro</p>
       </div>
+      
       <button class="btn btn-primary" id="savesettings">Save Settings</button>
     </div>
   </div>

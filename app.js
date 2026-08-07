@@ -121,7 +121,63 @@ function lineageOf(id){ const out=[]; acceptedEdges().forEach(s=>{ if(s.a===id) 
 const LIN_LABEL={out:{expands:"expands",contradicts:"contradicts",relates:"related to"},in:{expands:"expanded by",contradicts:"contradicted by",relates:"related to"}};
 
 /* ============================== AI engine (local heuristics) ============================== */
-function extractConcepts(text){
+// AI-powered concept extraction using Google Gemini
+async function extractConceptsAI(text){
+  const apiKey=settings.googleApiKey;
+  const model=settings.researchModel||'gemini-2.0-flash-exp';
+  
+  if(!apiKey){
+    // Fallback to local lexicon-based extraction
+    return extractConceptsLocal(text);
+  }
+  
+  const prompt=`You are a concept extraction assistant. Analyze the following text and identify 3-5 key concepts from this list: ${Object.keys(LEXICON).join(', ')}. If none match well, suggest relevant concepts based on the content.
+
+Text: ${text}
+
+Return ONLY a JSON array in this exact format:
+[{"name":"Concept Name","score":0.9},{"name":"Another Concept","score":0.7}]
+
+Scores should be between 0 and 1 based on relevance.`;
+
+  try{
+    const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body={
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{
+        temperature:0.1,
+        maxOutputTokens:500,
+        responseMimeType:'application/json'
+      }
+    };
+    
+    const response=await fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    
+    if(!response.ok) throw new Error('AI concept extraction failed');
+    
+    const data=await response.json();
+    if(data.candidates&&data.candidates[0]?.content?.parts){
+      const responseText=data.candidates[0].content.parts.map(p=>p.text).join('');
+      const jsonMatch=responseText.match(/\[[\s\S]*\]/);
+      if(jsonMatch){
+        const concepts=JSON.parse(jsonMatch[0]);
+        return concepts.slice(0,5).map(c=>({name:c.name,score:Math.min(1,c.score||0.5)}));
+      }
+    }
+  }catch(e){
+    console.warn('AI concept extraction failed, using local fallback:',e.message);
+  }
+  
+  // Fallback to local extraction
+  return extractConceptsLocal(text);
+}
+
+// Local lexicon-based concept extraction (fallback)
+function extractConceptsLocal(text){
  const toks=tokenize(text), out=[];
  for(const [name,words] of Object.entries(LEXICON)){
    const hits=new Set();
@@ -131,6 +187,10 @@ function extractConcepts(text){
  out.sort((a,b)=>b.score-a.score);
  return out.slice(0,5);
 }
+
+// Alias for backward compatibility
+function extractConcepts(text){ return extractConceptsLocal(text); }
+
 function refineText(raw){
  let t=raw.replace(/\s+/g," ").trim();
  t=t.replace(/\b(?:um+|uh+|er+|you know|i mean|sort of|kind of|basically|so yeah|right\?|literally)\b/gi,"")
@@ -141,13 +201,65 @@ function refineText(raw){
  const paras=[]; for(let i=0;i<sents.length;i+=3) paras.push(sents.slice(i,i+3).join(" "));
  return paras.join("\n\n");
 }
-function buildInterpretation(concepts){
+
+// AI-powered interpretation builder
+async function buildInterpretationAI(text,concepts){
+  const apiKey=settings.googleApiKey;
+  const model=settings.researchModel||'gemini-2.0-flash-exp';
+  
+  if(!apiKey){
+    // Fallback to local interpretation
+    return buildInterpretationLocal(concepts);
+  }
+  
+  const conceptNames=concepts.map(c=>c.name).join(', ');
+  const prompt=`You are a knowledge interpretation assistant. Based on the text and detected concepts, write a brief interpretation (2-3 sentences) explaining what this note is about.
+
+Text: ${text}
+
+Detected Concepts: ${conceptNames}
+
+Return ONLY a single paragraph interpretation. Do not include any labels or prefixes.`;
+
+  try{
+    const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body={
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{
+        temperature:0.3,
+        maxOutputTokens:200
+      }
+    };
+    
+    const response=await fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    
+    if(!response.ok) throw new Error('AI interpretation failed');
+    
+    const data=await response.json();
+    if(data.candidates&&data.candidates[0]?.content?.parts){
+      return data.candidates[0].content.parts.map(p=>p.text).join('').trim();
+    }
+  }catch(e){
+    console.warn('AI interpretation failed, using local fallback:',e.message);
+  }
+  
+  return buildInterpretationLocal(concepts);
+}
+
+function buildInterpretationLocal(concepts){
  const names=concepts.map(c=>c.name); if(!names.length) return "The assistant could not detect strong concept signals in this note; treat all structure as provisional.";
  let s="This note centers on "+names.slice(0,Math.min(2,names.length)).join(" and ");
  if(names.length>2) s+=", with secondary threads of "+names.slice(2).join(", ");
  s+=". Concepts were identified from recurring terminology only — no external facts were added.";
  return s;
 }
+
+// Alias for backward compatibility  
+function buildInterpretation(concepts){ return buildInterpretationLocal(concepts); }
 function contrastSignal(text){ return /\b(but|however|although|yet|actually|rethink\w*|reconsider\w*|on reflection|wrong|mistake|incomplete|no longer|opposite|revis\w*)\b/i.test(text); }
 function overlapOf(a,b){
  const ca=new Set(a.concepts.map(c=>c.name)), cb=new Set(b.concepts.map(c=>c.name));
@@ -439,7 +551,7 @@ async function processNote(){
  fin(0,`locked verbatim as Note #${state.seq} — never editable, never deletable`);
  
  act(1); await sleep(700);
- const concepts=extractConcepts(text);
+ const concepts=await extractConceptsAI(text);
  fin(1,concepts.length?concepts.map(c=>esc(c.name)).join(" · "):"no strong concept signals");
  
  act(2);
@@ -448,7 +560,7 @@ async function processNote(){
    refined=window.aiRefinedVersion;
    fin(2,`AI structured output ready <span style="color:var(--amber)">(original transcript preserved)</span>`);
    window.aiRefinedVersion=null;
- }else if(settings.apiKey){
+ }else if(settings.googleApiKey){
    try{
      refined=await sendTextToAI(text);
      fin(2,`AI Refined Version drafted <span style="color:var(--faint)">(original untouched)</span>`);
@@ -466,7 +578,7 @@ async function processNote(){
  // Step 4: Find suggestions
  act(3); await sleep(900);
  const domains=[...new Set(concepts.slice(0,3).map(c=>CONCEPT_DOMAIN[c.name]))];
- const interpretation=buildInterpretation(concepts);
+ const interpretation=await buildInterpretationAI(text,concepts);
  const confidence=concepts.length>=3?"high":concepts.length===2?"medium":"low";
  const limitations=buildLimitations(capTab,concepts,confidence);
  const first=(refined.split(/[.!?]/)[0]||"Untitled thought").trim();
@@ -490,7 +602,7 @@ async function processNote(){
  $("#results").innerHTML=`
   <div class="rescard orig rise"><div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT · #${note.num} · PRESERVED VERBATIM</div><div class="notetext">${esc(note.original)}</div></div>
   <div class="rescard ref rise d1"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
-    <div class="disclaim">${ICON.spark} ${settings.apiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
+    <div class="disclaim">${ICON.spark} ${settings.googleApiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
     <div class="notetext">${esc(note.refined)}</div></div>
   <div class="rescard rise d2"><div class="lbl">AI TRANSPARENCY</div>
     <div class="interp">${esc(note.interpretation)}</div>
@@ -886,20 +998,20 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
 
 /* ============================== settings panel ============================== */
 const SETTINGS_KEY='rhizome_settings';
-let settings={apiKey:'',apiBaseUrl:'',model:''};
+let settings={googleApiKey:'',transcriptModel:'',researchModel:''};
 
 function loadSettings(){
   const s=localStorage.getItem(SETTINGS_KEY);
   if(s){try{settings=JSON.parse(s);}catch(e){}}
-  $('#apikey').value=settings.apiKey||'';
-  $('#apibaseurl').value=settings.apiBaseUrl||'';
-  $('#model').value=settings.model||'';
+  $('#googleapikey').value=settings.googleApiKey||'';
+  $('#transcriptmodel').value=settings.transcriptModel||'gemini-2.0-flash-exp';
+  $('#researchmodel').value=settings.researchModel||'gemini-2.0-flash-exp';
 }
 
 function saveSettings(){
-  settings.apiKey=$('#apikey').value.trim();
-  settings.apiBaseUrl=$('#apibaseurl').value.trim();
-  settings.model=$('#model').value.trim();
+  settings.googleApiKey=$('#googleapikey').value.trim();
+  settings.transcriptModel=$('#transcriptmodel').value.trim()||'gemini-2.0-flash-exp';
+  settings.researchModel=$('#researchmodel').value.trim()||'gemini-2.0-flash-exp';
   localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
   toast('Settings saved successfully','ok');
   closeSettingsPanel();
@@ -939,24 +1051,18 @@ function blobToBase64(blob){
 
 // Send audio to AI for transcription AND refinement in SINGLE API call
 async function sendAudioToAI(audioBlob){
-  const apiKey=settings.apiKey;
-  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
-  const model=settings.model||'gpt-4o';
+  const apiKey=settings.googleApiKey;
+  const model=settings.transcriptModel||'gemini-2.0-flash-exp';
   
   if(!apiKey){
-    throw new Error('API key not configured. Please add your API key in Settings.');
+    throw new Error('Google API key not configured. Please add your API key in Settings.');
   }
   
   // Convert audio blob to base64
   const base64Audio=await blobToBase64(audioBlob);
   
-  // Build endpoint from base URL
-  const endpoint=`${apiBaseUrl}/chat/completions`;
-  
-  const headers={
-    'Content-Type':'application/json',
-    'Authorization':`Bearer ${apiKey}`
-  };
+  // Google Generative AI endpoint for multimodal input
+  const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   // Universal System Prompt for Transcription + Refinement
   const systemPrompt=`You are a knowledge processing assistant. You will receive an audio file.
@@ -976,23 +1082,24 @@ Return your response in this EXACT JSON format:
 
 Do not include any other text outside the JSON.`;
 
-  // Construct payload compatible with OpenAI-standard multimodal models
-  let body={
-    model:model,
-    messages:[
-      {role:'system',content:systemPrompt},
-      {role:'user',content:[
-        {type:'text',text:'Please transcribe and refine this audio recording.'},
-        {type:'input_audio',audio:{data:base64Audio,format:'webm'}}
-      ]}
-    ],
-    temperature:0,
-    max_tokens:4000
+  // Construct payload for Google Generative AI
+  const body={
+    contents:[{
+      parts:[
+        {text:systemPrompt},
+        {inline_data:{mime_type:'audio/webm',data:base64Audio}}
+      ]
+    }],
+    generationConfig:{
+      temperature:0,
+      maxOutputTokens:4000,
+      responseMimeType:'application/json'
+    }
   };
   
   const response=await fetch(endpoint,{
     method:'POST',
-    headers,
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
   
@@ -1003,11 +1110,9 @@ Do not include any other text outside the JSON.`;
   
   const data=await response.json();
   
-  // Extract response
+  // Extract response from Google format
   let responseText='';
-  if(data.choices&&data.choices[0]?.message){
-    responseText=data.choices[0].message.content||'';
-  }else if(data.candidates&&data.candidates[0]?.content?.parts){
+  if(data.candidates&&data.candidates[0]?.content?.parts){
     responseText=data.candidates[0].content.parts.map(p=>p.text).join('')||'';
   }
   
@@ -1028,12 +1133,11 @@ Do not include any other text outside the JSON.`;
 
 // Send text to AI for refinement ONLY in SINGLE API call
 async function sendTextToAI(text){
-  const apiKey=settings.apiKey;
-  const apiBaseUrl=settings.apiBaseUrl||'https://api.openai.com/v1';
-  const model=settings.model||'gpt-4o';
+  const apiKey=settings.googleApiKey;
+  const model=settings.transcriptModel||'gemini-2.0-flash-exp';
   
   if(!apiKey){
-    throw new Error('API key not configured. Please add your API key in Settings.');
+    throw new Error('Google API key not configured. Please add your API key in Settings.');
   }
   
   // System prompt for text: ONLY refine to structured format
@@ -1048,27 +1152,25 @@ Return ONLY the refined text, no explanations or additional commentary.`;
 
   const userPrompt=`Refine this text into a clear, structured format:\n\n${text}`;
   
-  // Build endpoint from base URL
-  const endpoint=`${apiBaseUrl}/chat/completions`;
+  // Google Generative AI endpoint
+  const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  const headers={
-    'Content-Type':'application/json',
-    'Authorization':`Bearer ${apiKey}`
-  };
-  
-  let body={
-    model:model,
-    messages:[
-      {role:'system',content:systemPrompt},
-      {role:'user',content:userPrompt}
-    ],
-    temperature:0.3,
-    max_tokens:2000
+  const body={
+    contents:[{
+      parts:[
+        {text:systemPrompt},
+        {text:userPrompt}
+      ]
+    }],
+    generationConfig:{
+      temperature:0.3,
+      maxOutputTokens:2000
+    }
   };
 
   const response=await fetch(endpoint,{
     method:'POST',
-    headers,
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
   });
 
@@ -1078,9 +1180,9 @@ Return ONLY the refined text, no explanations or additional commentary.`;
   }
 
   const data=await response.json();
-  // Handle standard OpenAI response format
-  if(data.choices&&data.choices[0]?.message){
-    return data.choices[0].message.content||'';
+  // Handle Google Generative AI response format
+  if(data.candidates&&data.candidates[0]?.content?.parts){
+    return data.candidates[0].content.parts.map(p=>p.text).join('')||'';
   }
   return '';
 }
