@@ -1049,7 +1049,86 @@ function blobToBase64(blob){
   });
 }
 
-// Send audio to AI for transcription AND refinement in SINGLE API call
+// Upload file to Google Files API and wait for it to become ACTIVE
+async function uploadFileToGoogle(file, apiKey){
+  const uploadEndpoint=`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
+  
+  // Create multipart upload body
+  const metadata={
+    display_name:file.name,
+    mime_type:file.type||'audio/webm'
+  };
+  
+  const boundary='----WebKitFormBoundary'+Math.random().toString(36).substring(2);
+  const requestBody=[
+    '--'+boundary,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(metadata),
+    '--'+boundary,
+    'Content-Type: '+(file.type||'audio/webm'),
+    '',
+    ''
+  ].join('\r\n');
+  
+  // Read file as ArrayBuffer and combine with metadata
+  const fileBuffer=await file.arrayBuffer();
+  const requestBodyBytes=new TextEncoder().encode(requestBody);
+  const closingBytes=new TextEncoder().encode('\r\n--'+boundary+'--\r\n');
+  
+  const fullBody=new Uint8Array(requestBodyBytes.byteLength+fileBuffer.byteLength+closingBytes.byteLength);
+  fullBody.set(requestBodyBytes,0);
+  fullBody.set(new Uint8Array(fileBuffer),requestBodyBytes.byteLength);
+  fullBody.set(closingBytes,requestBodyBytes.byteLength+fileBuffer.byteLength);
+  
+  const response=await fetch(uploadEndpoint,{
+    method:'POST',
+    headers:{
+      'X-Goog-Upload-Protocol':'multipart',
+      'X-Goog-Upload-Header-Content-Length':file.size.toString(),
+      'X-Goog-Upload-Header-Content-Type':file.type||'audio/webm',
+      'Content-Type':'multipart/related; boundary='+boundary
+    },
+    body:fullBody
+  });
+  
+  if(!response.ok){
+    const err=await response.json().catch(()=>({}));
+    throw new Error(err.error?.message||`File upload failed with status ${response.status}`);
+  }
+  
+  const data=await response.json();
+  return data.file;
+}
+
+// Poll file state until it becomes ACTIVE
+async function waitForFileActive(fileUri, apiKey){
+  const maxAttempts=30;
+  const pollInterval=2000;
+  
+  for(let i=0;i<maxAttempts;i++){
+    await sleep(pollInterval);
+    
+    const fileEndpoint=`https://generativelanguage.googleapis.com/v1beta/${fileUri}?key=${apiKey}`;
+    const response=await fetch(fileEndpoint,{method:'GET'});
+    
+    if(!response.ok){
+      throw new Error(`Failed to check file state: ${response.status}`);
+    }
+    
+    const data=await response.json();
+    if(data.file&&data.file.state==='ACTIVE'){
+      return data.file;
+    }
+    if(data.file&&data.file.state==='FAILED'){
+      throw new Error('File processing failed on Google servers');
+    }
+  }
+  
+  throw new Error('Timeout waiting for file to become active');
+}
+
+// Send audio to AI for transcription AND refinement using Google Files API
 async function sendAudioToAI(audioBlob){
   const apiKey=settings.googleApiKey;
   const model=settings.transcriptModel||'gemini-2.0-flash-exp';
@@ -1058,41 +1137,61 @@ async function sendAudioToAI(audioBlob){
     throw new Error('Google API key not configured. Please add your API key in Settings.');
   }
   
-  // Convert audio blob to base64
-  const base64Audio=await blobToBase64(audioBlob);
+  // Create a File object from the blob
+  const file=new File([audioBlob],'audio_recording.webm',{type:audioBlob.type||'audio/webm'});
   
-  // Google Generative AI endpoint for multimodal input
+  // Step 1: Upload file to Google Files API
+  const uploadedFile=await uploadFileToGoogle(file,apiKey);
+  const fileUri=uploadedFile.name; // This is the file URI (e.g., "files/abc123...")
+  
+  // Step 2: Wait for file state to become ACTIVE
+  const activeFile=await waitForFileActive(fileUri,apiKey);
+  
+  // Step 3: Use the file URI in generateContent request
   const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  // Universal System Prompt for Transcription + Refinement
-  const systemPrompt=`You are a knowledge processing assistant. You will receive an audio file.
-Your task is to:
-1. First, generate an EXACT verbatim transcript of the audio (preserve all words, including filler words like "um", "uh", etc.)
-2. Then, create a REFINED version that:
-   - Removes filler words and false starts
-   - Structures the content into clear, logical points
-   - Uses proper paragraphs and formatting
-   - Preserves the EXACT meaning without adding or removing any core ideas
-   
+  // Enhanced System Prompt for complete transcript extraction and structural refinement
+  const systemPrompt=`You are an expert transcription and knowledge refinement assistant. You will receive an audio file.
+Your task is to perform TWO distinct operations:
+
+**TASK 1: COMPLETE VERBATIM TRANSCRIPT**
+Generate an EXACT, word-for-word transcript of the entire audio content:
+- Include EVERY word spoken, including filler words ("um", "uh", "like", "you know", etc.)
+- Preserve all false starts, repetitions, and speech disfluencies exactly as spoken
+- Do NOT summarize, paraphrase, or omit ANY portion of the audio
+- Capture the complete audio from start to finish without truncation
+- Maintain the natural flow and rhythm of spoken language
+
+**TASK 2: STRUCTURED REFINEMENT WITH POINTS AND PARTS**
+Create a refined, structured version that transforms the raw transcript into organized knowledge:
+- Organize content into clear PARTS (major sections/themes) and POINTS (specific ideas within each part)
+- Remove all filler words, false starts, and verbal tics
+- Structure ideas hierarchically with logical flow between concepts
+- Use numbered points, bullet points, and clear paragraph breaks
+- Label each major section with descriptive headers (Part 1, Part 2, etc.)
+- Preserve the EXACT meaning and core ideas without adding external information
+- Extract and highlight key insights, conclusions, and actionable takeaways
+- Ensure the refined version reads like polished written content while maintaining fidelity to the original thought
+
 Return your response in this EXACT JSON format:
 {
-  "transcript": "the exact verbatim transcript here",
-  "refined": "the refined structured version here"
+  "transcript": "the complete verbatim transcript here - every single word from the audio",
+  "refined": "PART 1: [Title]\n• Point 1: [Clear statement]\n• Point 2: [Clear statement]\n\nPART 2: [Title]\n• Point 1: [Clear statement]\n..."
 }
 
-Do not include any other text outside the JSON.`;
+Do not include any other text outside the JSON object.`;
 
-  // Construct payload for Google Generative AI
+  // Construct payload for Google Generative AI using file URI
   const body={
     contents:[{
       parts:[
         {text:systemPrompt},
-        {inline_data:{mime_type:'audio/webm',data:base64Audio}}
+        {file_data:{file_uri:fileUri,mime_type:'audio/webm'}}
       ]
     }],
     generationConfig:{
       temperature:0,
-      maxOutputTokens:4000,
+      maxOutputTokens:8192,
       responseMimeType:'application/json'
     }
   };
@@ -1130,6 +1229,7 @@ Do not include any other text outside the JSON.`;
   // Fallback: treat entire response as transcript, no refinement
   return {transcript:responseText,refined:responseText};
 }
+
 
 // Send text to AI for refinement ONLY in SINGLE API call
 async function sendTextToAI(text){
