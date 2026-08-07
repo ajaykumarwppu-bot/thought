@@ -1053,10 +1053,12 @@ function blobToBase64(blob){
 async function uploadFileToGoogle(file, apiKey){
   const uploadEndpoint=`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
   
-  // Create multipart upload body
+  // Create multipart upload body - metadata must be wrapped in 'file' object
   const metadata={
-    display_name:file.name,
-    mime_type:file.type||'audio/webm'
+    file:{
+      displayName:file.name,
+      mimeType:file.type||'audio/webm'
+    }
   };
   
   const boundary='----WebKitFormBoundary'+Math.random().toString(36).substring(2);
