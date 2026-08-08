@@ -420,11 +420,6 @@ function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
  const pend=pendingCount();
  $("#main").innerHTML=`
-  <div class="viewhead rise">
-    <div class="eyebrow">Constellation</div>
-    <h1 class="vt">Your knowledge, as one living system</h1>
-    <p class="sub">${state.notes.length} notes · ${acceptedEdges().length} accepted connections · ${pend} suggestion${pend===1?"":"s"} awaiting your decision. No folders — only relationships.</p>
-  </div>
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
     <div class="glegend">${doms.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||"#fff"}"></i>${esc(d)}</span>`).join("")}</div>
