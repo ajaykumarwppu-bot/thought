@@ -57,15 +57,28 @@ const ASSOC={
 
 /* ============================== state & seed ============================== */
 const LSKEY="rhizome_state_v1";
+const DELETED_KEY="rhizome_deleted_notes";
 let state=null;
+let deletedNoteIds=[];
+
+function loadDeletedIds(){
+  try{
+    const d=localStorage.getItem(DELETED_KEY);
+    if(d) deletedNoteIds=JSON.parse(d);
+  }catch(e){}
+}
+
+function saveDeletedIds(){
+  try{localStorage.setItem(DELETED_KEY,JSON.stringify(deletedNoteIds))}catch(e){}
+}
 
 function seedState(){
  const N=(num,source,date,title,original,refined,concepts,domains,interpretation,confidence,limitations)=>({id:"n"+num,num,source,createdAt:date,title,original,refined,concepts,domains,interpretation,confidence,limitations,status:"active"});
  const S=(id,a,b,type,status,score,confidence,reason,date)=>({id,a,b,type,status,score,confidence,reason,createdAt:date,resolvedAt:status!=="pending"?date:null});
  const C=(n,s)=>({name:n,score:s});
- return {
-  seq:64, sel:null,
-  notes:[
+ 
+ // Filter out any notes that have been permanently deleted by the user
+ const baseNotes = [
    N(17,"voice","2023-05-20T09:12:00Z","The adjustment is the learning",
     "uh so basically everything I've learned worth keeping came from trial and error, not from reading, you try, you fail, you adjust, you try again, and the adjustment IS the learning, books can point at the door but walking through it is feedback",
     "Everything I have learned that was worth keeping arrived through trial and error rather than through reading. You try, you fail, you adjust, you try again — and the adjustment itself is the learning. Books can point at the door, but walking through it is feedback.",
@@ -96,7 +109,14 @@ function seedState(){
     [C("Feedback Loops",.9),C("Philosophy of Mind",.8),C("Learning",.65),C("Habits",.5)],["Philosophy","Psychology"],
     "The note revises a prior belief: it argues that feedback requires a slower supervening layer of reflection or meaning to be effective. This directly extends and partially contradicts the position in Note #42. Core concepts: Feedback Loops, Philosophy of Mind, Learning.",
     "medium",["Transcribed from voice — recognition errors may be present in the Original Version.","Confidence below high: some suggested connections may be coincidental.","This interpretation is inferred from context and may not fully represent your intended meaning."])
-  ],
+ ];
+ 
+ // Filter out deleted notes
+ const notes = baseNotes.filter(n => !deletedNoteIds.includes(n.id));
+ 
+ return {
+  seq:64, sel:null,
+  notes: notes,
   suggestions:[
    S("s1","n51","n42","expands","accepted",.82,"high","Shared concepts: Feedback Loops, Systems Thinking, Learning · #51 explicitly references the model recorded in #42 and builds a new architecture on it.","2025-02-08T21:31:00Z"),
    S("s2","n63","n42","contradicts","accepted",.58,"medium","Shared concepts: Feedback Loops, Learning · revision markers detected (\u201Crethinking\u201D, \u201Con reflection\u201D, \u201Cright but incomplete\u201D).","#2025-06-19T08:21:00Z".replace("#2","2")),
@@ -109,7 +129,11 @@ function seedState(){
  };
 }
 function save(){ try{localStorage.setItem(LSKEY,JSON.stringify(state))}catch(e){} }
-function load(){ try{const r=localStorage.getItem(LSKEY); if(r){state=JSON.parse(r);return}}catch(e){} state=seedState(); save(); }
+function load(){ 
+  try{const r=localStorage.getItem(LSKEY); if(r){state=JSON.parse(r);return}}catch(e){} 
+  state=seedState(); 
+  save(); 
+}
 
 const noteOf=id=>state.notes.find(n=>n.id===id);
 const numOf=id=>{const n=noteOf(id);return n?n.num:"?"};
@@ -354,12 +378,25 @@ function lineageBadges(id){
 
 /* ============================== mutations ============================== */
 function deleteNote(id){
- const idx=state.notes.findIndex(n=>n.id===id); if(idx===-1) return;
- state.notes.splice(idx,1); save(); toast("Note deleted","warn"); updateStats(); buildNav(); 
- if(current==="timeline") renderTimeline(); 
- if(current==="review") renderMain(); 
- if(selId===id) closeInspector(); 
- else if(selId) renderInspector(selId);
+  if(!confirm("Are you sure you want to delete this note permanently? This action cannot be undone.")){
+    return;
+  }
+  const idx=state.notes.findIndex(n=>n.id===id); 
+  if(idx===-1) return;
+  
+  // Add to deleted list to prevent restoration on reset
+  deletedNoteIds.push(id);
+  saveDeletedIds();
+  
+  state.notes.splice(idx,1); 
+  save(); 
+  toast("Note deleted permanently","warn"); 
+  updateStats(); 
+  buildNav(); 
+  if(current==="timeline") renderTimeline(); 
+  if(current==="review") renderMain(); 
+  if(selId===id) closeInspector(); 
+  else if(selId) renderInspector(selId);
 }
 function resolveSuggestion(sid,verdict,ctx){
  const s=state.suggestions.find(x=>x.id===sid); if(!s||s.status!=="pending") return;
@@ -995,10 +1032,11 @@ function stopRec(){
 }
 
 /* ============================== boot ============================== */
+loadDeletedIds();
 load(); buildNav(); updateStats(); renderMain(); requestAnimationFrame(loop);
 // #capbtn removed - replaced with settings button
 $("#gsearch").addEventListener("keydown",e=>{if(e.key==="Enter"){setView("search");const v=$("#gsearch").value;setTimeout(()=>{$("#sq").value=v;runSearch(v);},30);}else if(e.key==="Enter"&&e.shiftKey){setView("capture");}});
-$("#resetlink").onclick=()=>{if(confirm("Reset all demo data? Your local notes will be replaced by the seed knowledge base.")){localStorage.removeItem(LSKEY);location.reload();}};
+$("#resetlink").onclick=()=>{if(confirm("Reset all demo data? Your local notes will be replaced by the seed knowledge base. (Permanently deleted notes will NOT be restored.)")){localStorage.removeItem(LSKEY);location.reload();}};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInspector();});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(b)resolveSuggestion(b.dataset.sid,b.dataset.act,b.dataset.ctx);});
 
