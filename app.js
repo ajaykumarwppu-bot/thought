@@ -64,52 +64,26 @@ function seedState(){
  const S=(id,a,b,type,status,score,confidence,reason,date)=>({id,a,b,type,status,score,confidence,reason,createdAt:date,resolvedAt:status!=="pending"?date:null});
  const C=(n,s)=>({name:n,score:s});
  return {
-  seq:64, sel:null,
-  notes:[
-   N(17,"voice","2023-05-20T09:12:00Z","The adjustment is the learning",
-    "uh so basically everything I've learned worth keeping came from trial and error, not from reading, you try, you fail, you adjust, you try again, and the adjustment IS the learning, books can point at the door but walking through it is feedback",
-    "Everything I have learned that was worth keeping arrived through trial and error rather than through reading. You try, you fail, you adjust, you try again — and the adjustment itself is the learning. Books can point at the door, but walking through it is feedback.",
-    [C("Trial & Error",.95),C("Learning",.9),C("Feedback Loops",.7)],["Philosophy","Learning"],
-    "An epistemological claim: durable knowledge is produced by iterative correction (trial and error), with reading positioned as orientation rather than acquisition. Core concepts: Trial & Error, Learning, Feedback Loops.",
-    "medium",["Transcribed from voice — recognition errors may be present in the Original Version.","This interpretation is inferred from context and may not fully represent your intended meaning."]),
-   N(38,"text","2024-09-14T18:40:00Z","Fear: the fast lane of feedback",
-    "Fear is the oldest feedback system. The amygdala fires before the conscious mind even labels the threat. That means the feedback loop has a fast lane and a slow lane, and most of our decisions about risk travel the fast one. If I'm designing anything — a product, an argument, a habit — I should assume the fast lane gets there first.",
-    "Fear is the oldest feedback system we possess. The amygdala fires before the conscious mind has even labelled a threat, which means every feedback loop has two lanes — a fast one and a slow one — and most of our decisions about risk travel the fast lane first. Anything I design, whether a product, an argument, or a habit, should assume the fast lane arrives before reason does.",
-    [C("Fear Response",.95),C("Feedback Loops",.85),C("Psychology",.7)],["Psychology","Biology"],
-    "The note frames fear as a dual-speed feedback mechanism and derives a design principle from it. Core concepts: Fear Response, Feedback Loops, Psychology.",
-    "high",["This interpretation is inferred from context and may not fully represent your intended meaning."]),
-   N(42,"voice","2024-11-02T11:05:00Z","The Nature Feedback Model",
-    "so I've been thinking about how nature runs on feedback loops everywhere you look, um, a forest isn't just trees it's a conversation of signals, roots, fungi, chemicals, and every organism adjusts based on what it receives back from the environment, you know, and I think this is the deepest pattern there is, learning is just feedback over time",
-    "Nature operates on feedback loops at every scale. A forest is not merely a collection of trees; it is a continuous exchange of signals — through roots, fungi, and chemistry — in which every organism adjusts based on what the environment returns to it. This appears to be one of the deepest recurring patterns in living systems: learning, at its core, is feedback accumulated over time.",
-    [C("Feedback Loops",.98),C("Nature & Biology",.9),C("Systems Thinking",.75),C("Learning",.6)],["Biology","Systems","Evolution"],
-    "This note proposes that feedback loops are the fundamental operating pattern of natural systems, and extends the idea to learning itself. Core concepts: Feedback Loops, Nature & Biology, Systems Thinking.",
-    "high",["Transcribed from voice — recognition errors may be present in the Original Version.","This interpretation is inferred from context and may not fully represent your intended meaning."]),
-   N(51,"text","2025-02-08T21:30:00Z","Agents as feedback engines",
-    "I keep coming back to the feedback model from note #42. Agent architectures should mirror it: act, observe the environment's response, update internal state, act again. Memory isn't storage — memory is the residue of corrections. An agent without a feedback channel is just an autocomplete engine, however large.",
-    "I keep returning to the feedback model recorded in Note #42. Agent architectures should mirror it directly: act, observe the environment's response, update the internal state, act again. On this view, memory is not storage — memory is the residue of accumulated corrections. An agent without a genuine feedback channel is only an autocomplete engine, regardless of its size.",
-    [C("AI Agents",.95),C("Feedback Loops",.9),C("Systems Thinking",.7),C("Learning",.55)],["Artificial Intelligence","Systems"],
-    "The note maps the earlier Nature Feedback Model (#42) onto AI agent design, redefining memory as accumulated corrections. Core concepts: AI Agents, Feedback Loops, Systems Thinking.",
-    "high",["This interpretation is inferred from context and may not fully represent your intended meaning."]),
-   N(63,"voice","2025-06-19T08:20:00Z","Feedback is not enough",
-    "I've been rethinking my earlier position. On reflection, feedback alone can't be sufficient — if it were, everyone with a gym membership would be fit. There has to be a slower layer, something like reflection or meaning, that decides which feedback even matters. I think my nature-feedback model was right but incomplete.",
-    "I have been rethinking my earlier position. On reflection, feedback alone cannot be sufficient — if it were, everyone with a gym membership would be fit. There must be a slower layer above it, something like reflection or meaning-making, that decides which feedback even matters in the first place. My nature-feedback model was right, but incomplete.",
-    [C("Feedback Loops",.9),C("Philosophy of Mind",.8),C("Learning",.65),C("Habits",.5)],["Philosophy","Psychology"],
-    "The note revises a prior belief: it argues that feedback requires a slower supervening layer of reflection or meaning to be effective. This directly extends and partially contradicts the position in Note #42. Core concepts: Feedback Loops, Philosophy of Mind, Learning.",
-    "medium",["Transcribed from voice — recognition errors may be present in the Original Version.","Confidence below high: some suggested connections may be coincidental.","This interpretation is inferred from context and may not fully represent your intended meaning."])
-  ],
-  suggestions:[
-   S("s1","n51","n42","expands","accepted",.82,"high","Shared concepts: Feedback Loops, Systems Thinking, Learning · #51 explicitly references the model recorded in #42 and builds a new architecture on it.","2025-02-08T21:31:00Z"),
-   S("s2","n63","n42","contradicts","accepted",.58,"medium","Shared concepts: Feedback Loops, Learning · revision markers detected (\u201Crethinking\u201D, \u201Con reflection\u201D, \u201Cright but incomplete\u201D).","#2025-06-19T08:21:00Z".replace("#2","2")),
-   S("s3","n17","n42","relates","accepted",.71,"high","Shared concepts: Feedback Loops, Learning · recurring terms: feedback, adjust, learning.","2024-11-02T11:06:00Z"),
-   S("s4","n38","n42","relates","accepted",.49,"medium","Shared concept: Feedback Loops · fear is framed as a feedback mechanism in both notes.","2024-11-02T11:06:00Z"),
-   S("s5","n63","n17","relates","accepted",.44,"medium","Shared concepts: Learning, Feedback Loops · both treat correction as the substance of learning.","2025-06-19T08:21:00Z"),
-   S("s6","n63","n51","relates","pending",.52,"medium","Both treat feedback as a necessary condition for learning — one biological, one architectural. The \u201Cslower layer\u201D proposed in #63 may need to constrain the agent loop described in #51.","2025-06-19T08:22:00Z"),
-   S("s7","n38","n51","relates","pending",.28,"low","Possible analogy between the fast-lane threat response (#38) and agent reaction cycles (#51). Signal is weak; treat as speculative.","2025-02-08T21:32:00Z")
-  ]
+  seq:0, sel:null,
+  notes:[],
+  suggestions:[]
  };
 }
 function save(){ try{localStorage.setItem(LSKEY,JSON.stringify(state))}catch(e){} }
 function load(){ try{const r=localStorage.getItem(LSKEY); if(r){state=JSON.parse(r);return}}catch(e){} state=seedState(); save(); }
+
+function deleteNote(id){
+  const idx=state.notes.findIndex(n=>n.id===id);
+  if(idx===-1) return;
+  // Remove all suggestions involving this note
+  state.suggestions=state.suggestions.filter(s=>s.a!==id && s.b!==id);
+  // Remove the note
+  state.notes.splice(idx,1);
+  save();
+  render();
+  renderNav();
+  toast("Note deleted","leaf");
+}
 
 const noteOf=id=>state.notes.find(n=>n.id===id);
 const numOf=id=>{const n=noteOf(id);return n?n.num:"?"};
@@ -664,19 +638,30 @@ function renderTimeline(){
  ${notes.map((n,i)=>`
   <div class="tentry rise ${i<4?"d"+i:""}" data-open="${n.id}">
    <div class="tcard">
-     <div style="display:flex;gap:16px;align-items:flex-start">
-       <div class="tnum">#${n.num}</div>
+     <div style="display:flex;gap:16px;align-items:flex-start;justify-content:space-between">
        <div style="flex:1;min-width:0">
-         <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
+         <div class="tmeta"><span>${n.source===\"voice\"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
          <h3>${esc(n.title)}</h3>
          <p>${esc(n.refined.replace(/\n+/g," ").slice(0,170))}…</p>
          ${lineageBadges(n.id)}
        </div>
+       <button class="btn btn-ghost btn-sm delete-note-btn" data-delete="${n.id}" title="Delete this note" style="margin-top:8px;opacity:.7;flex:none">
+         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><path d="M3 4h10M5.5 4V3a1.5 1.5 0 013 0v1m5 0v9a2 2 0 01-2 2h-5a2 2 0 01-2-2V4"/><path d="M7 8v4M10 8v4"/></svg>
+       </button>
      </div>
    </div>
   </div>`).join("")}
  </div>`;
- $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
+ $$(".delete-note-btn").forEach(btn=>{
+   btn.onclick=(e)=>{
+     e.stopPropagation();
+     const id=btn.dataset.delete;
+     if(confirm("Are you sure you want to delete this note? This action cannot be undone.")){
+       deleteNote(id);
+     }
+   };
+ });
+ $$(".tentry[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
  bindSuggActs();
 }
 
@@ -992,7 +977,7 @@ function stopRec(){
 load(); buildNav(); updateStats(); renderMain(); requestAnimationFrame(loop);
 // #capbtn removed - replaced with settings button
 $("#gsearch").addEventListener("keydown",e=>{if(e.key==="Enter"){setView("search");const v=$("#gsearch").value;setTimeout(()=>{$("#sq").value=v;runSearch(v);},30);}else if(e.key==="Enter"&&e.shiftKey){setView("capture");}});
-$("#resetlink").onclick=()=>{if(confirm("Reset all demo data? Your local notes will be replaced by the seed knowledge base.")){localStorage.removeItem(LSKEY);location.reload();}};
+$("#resetlink").onclick=()=>{if(confirm("Clear all notes? This will remove everything from your local storage.")){localStorage.removeItem(LSKEY);location.reload();}};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInspector();});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(b)resolveSuggestion(b.dataset.sid,b.dataset.act,b.dataset.ctx);});
 
