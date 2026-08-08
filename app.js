@@ -667,11 +667,13 @@ function renderTimeline(){
          <p>${esc(n.refined.replace(/\n+/g," ").slice(0,170))}…</p>
          ${lineageBadges(n.id)}
        </div>
+       <button class="delbtn" data-del="${n.id}" title="Delete note">🗑</button>
      </div>
    </div>
   </div>`).join("")}
  </div>`;
  $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
+ $$(".delbtn").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
  bindSuggActs();
 }
 
@@ -708,12 +710,13 @@ function runSearch(q){
   </div>
   ${r.results.map(({note,found},i)=>`
    <div class="resultcard rise ${i<3?"d"+(i+1):""}" data-open="${note.id}">
-     <div class="rhead"><span class="rnum">#${note.num}</span><span class="rtitle">${esc(note.title)}</span><span style="margin-left:auto">${confBlock(note.confidence)}</span></div>
+     <div class="rhead"><span class="rnum">#${note.num}</span><span class="rtitle">${esc(note.title)}</span><span style="margin-left:auto">${confBlock(note.confidence)}</span><button class="delbtn" data-del="${note.id}" title="Delete note">🗑</button></div>
      <div class="rbody">${hlSnippet(note.refined.replace(/\n+/g," "),found)}</div>
      <div class="chips">${note.domains.map(domainChip).join("")}</div>
    </div>`).join("")}`;
  $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
 }
+ $$(".delbtn").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
 
 /* ---------- export view ---------- */
 function renderExport(){
