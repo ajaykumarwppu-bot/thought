@@ -353,6 +353,14 @@ function lineageBadges(id){
 }
 
 /* ============================== mutations ============================== */
+function deleteNote(id){
+ const idx=state.notes.findIndex(n=>n.id===id); if(idx===-1) return;
+ state.notes.splice(idx,1); save(); toast("Note deleted","warn"); updateStats(); buildNav(); 
+ if(current==="timeline") renderTimeline(); 
+ if(current==="review") renderMain(); 
+ if(selId===id) closeInspector(); 
+ else if(selId) renderInspector(selId);
+}
 function resolveSuggestion(sid,verdict,ctx){
  const s=state.suggestions.find(x=>x.id===sid); if(!s||s.status!=="pending") return;
  s.status=verdict; s.resolvedAt=new Date().toISOString(); save();
