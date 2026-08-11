@@ -1139,41 +1139,42 @@ function showAddCategoryModal(){
   const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
   const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
   
-  // Create custom modal HTML
+  // Create custom modal HTML - modal is now INSIDE overlay for proper centering
   const modalHtml=`
-    <div class="modal-overlay" id="catmodaloverlay"></div>
-    <div class="category-modal" id="categorymodal">
-      <div class="catmodal-header">
-        <h3>Manage Categories</h3>
-        <button class="catmodal-close" id="catmodalclose">&times;</button>
-      </div>
-      <div class="catmodal-body">
-        <div class="cat-add-section">
-          <label class="cat-label">Add New Category</label>
-          <div class="cat-input-row">
-            <input type="text" id="newcatinput" placeholder="Enter category name..." autocomplete="off">
-            <button class="btn btn-sm btn-primary" id="addcatconfirm">Add</button>
-          </div>
+    <div class="modal-overlay" id="catmodaloverlay">
+      <div class="category-modal" id="categorymodal">
+        <div class="catmodal-header">
+          <h3>Manage Categories</h3>
+          <button class="catmodal-close" id="catmodalclose">&times;</button>
         </div>
-        <div class="cat-list-section">
-          <label class="cat-label">Existing Categories</label>
-          <div class="cat-list" id="catlist">
-            ${allCats.map(catName=>{
-              const isCustom=customCategories.some(c=>c.name===catName);
-              const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
-              return `
-                <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
-                  <span class="cat-color-dot" style="background:${catColor}"></span>
-                  <span class="cat-name">${esc(catName)}</span>
-                  ${isCustom?`
-                    <div class="cat-actions">
-                      <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
-                      <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
-                    </div>
-                  `:`<span class="cat-system-tag">System</span>`}
-                </div>
-              `;
-            }).join("")}
+        <div class="catmodal-body">
+          <div class="cat-add-section">
+            <label class="cat-label">Add New Category</label>
+            <div class="cat-input-row">
+              <input type="text" id="newcatinput" placeholder="Enter category name..." autocomplete="off">
+              <button class="btn btn-sm btn-primary" id="addcatconfirm">Add</button>
+            </div>
+          </div>
+          <div class="cat-list-section">
+            <label class="cat-label">Existing Categories</label>
+            <div class="cat-list" id="catlist">
+              ${allCats.map(catName=>{
+                const isCustom=customCategories.some(c=>c.name===catName);
+                const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+                return `
+                  <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
+                    <span class="cat-color-dot" style="background:${catColor}"></span>
+                    <span class="cat-name">${esc(catName)}</span>
+                    ${isCustom?`
+                      <div class="cat-actions">
+                        <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
+                        <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
+                      </div>
+                    `:`<span class="cat-system-tag">System</span>`}
+                  </div>
+                `;
+              }).join("")}
+            </div>
           </div>
         </div>
       </div>
@@ -1183,6 +1184,9 @@ function showAddCategoryModal(){
   // Append modal to body
   document.body.insertAdjacentHTML('beforeend', modalHtml);
   
+  // Add modal-open class to body to prevent background scrolling
+  document.body.classList.add('modal-open');
+  
   // Bind modal events
   const overlay=$("#catmodaloverlay");
   const modal=$("#categorymodal");
@@ -1191,6 +1195,8 @@ function showAddCategoryModal(){
   const input=$("#newcatinput");
   
   function closeModal(){
+    // Remove modal-open class from body
+    document.body.classList.remove('modal-open');
     if(overlay) overlay.remove();
     if(modal) modal.remove();
   }
