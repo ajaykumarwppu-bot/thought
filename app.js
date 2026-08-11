@@ -531,6 +531,14 @@ function renderCapture(){
   <div class="panel rise d2" id="assistpanel">
     <div class="lbl"><span class="amb">${ICON.spark}</span> KNOWLEDGE ASSISTANT</div>
     <div id="assistbody"><div class="assist-idle">Standing by.<br><br>When you process a note I will —<br>· preserve your original words <b>verbatim</b><br>· extract concepts &amp; topics<br>· refine readability into a <b>separate copy</b><br>· scan the whole knowledge base for possible connections<br><br>I only suggest. <b>You decide.</b></div></div>
+    <div id="processsteps" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <div class="lbl" style="margin-bottom:10px">PROCESSING STEPS</div>
+      <div class="step" id="pst0"><span class="tick"></span><div class="st">Preserving original thought<em id="pstd0"></em></div></div>
+      <div class="step" id="pst1"><span class="tick"></span><div class="st">Extracting concepts<em id="pstd1"></em></div></div>
+      <div class="step" id="pst2"><span class="tick"></span><div class="st">Building structured output<em id="pstd2"></em></div></div>
+      <div class="step" id="pst3"><span class="tick"></span><div class="st">Scanning knowledge base for relations<em id="pstd3"></em></div></div>
+    </div>
+    <div id="airesults" style="display:none;margin-top:16px"></div>
   </div>
  </div>`;
  $$(".tab").forEach(t=>t.onclick=()=>{capTab=t.dataset.tab;renderCapture();});
