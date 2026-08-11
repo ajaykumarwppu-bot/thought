@@ -707,7 +707,8 @@ function bindSuggActs(){
 
 /* ---------- timeline view ---------- */
 function renderTimeline(){
- const notes=[...state.notes].sort((a,b)=>a.createdAt<b.createdAt?-1:1).reverse();
+ // Notes sorted oldest first (ascending), then reversed for display so newest appears at top
+ const notes=[...state.notes].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).reverse();
  const exp=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="expands").length;
  const con=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="contradicts").length;
  
@@ -725,14 +726,15 @@ function renderTimeline(){
  let globalSeq=1;
  let html='';
  
- sortedDates.forEach((dateKey,dateIdx)=>{
+ // Process dates from oldest to newest for proper numbering, but render in reverse order (newest first)
+ const reversedDates=[...sortedDates].reverse();
+ 
+ reversedDates.forEach((dateKey,dateIdx)=>{
    const dateNotes=notesByDate.get(dateKey);
    const formattedDate=new Date(dateKey).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
    
-   // Add date divider (except for first date)
-   if(dateIdx>0){
-     html+=`<div class="date-divider"><span>${formattedDate}</span></div>`;
-   }
+   // Add date divider before each date group
+   html+=`<div class="date-divider"><span>${formattedDate}</span></div>`;
    
    // Add notes for this date with sequential numbering
    dateNotes.forEach((n,i)=>{
@@ -1179,10 +1181,7 @@ function showAddCategoryModal(){
   `;
   
   // Append modal to body
-  const tempDiv=document.createElement('div');
-  tempDiv.innerHTML=modalHtml;
-  document.body.appendChild(tempDiv.firstElementChild);
-  document.body.appendChild(tempDiv.children[1]);
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
   
   // Bind modal events
   const overlay=$("#catmodaloverlay");
@@ -1192,8 +1191,8 @@ function showAddCategoryModal(){
   const input=$("#newcatinput");
   
   function closeModal(){
-    overlay.remove();
-    modal.remove();
+    if(overlay) overlay.remove();
+    if(modal) modal.remove();
   }
   
   overlay.onclick=closeModal;

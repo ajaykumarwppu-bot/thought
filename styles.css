@@ -298,3 +298,6 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 .date-divider{position:relative;padding:20px 0 10px;text-align:center}
 .date-divider::before{content:"";position:absolute;left:7px;top:0;bottom:0;width:1.5px;background:linear-gradient(180deg,transparent,var(--leaf),transparent)}
 .date-divider span{display:inline-block;background:#0B1811;padding:6px 14px;border:1px solid var(--line);border-radius:20px;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+
+/* Fix for first date divider - hide the connecting line above */
+.tl .date-divider:first-child::before{top:50%}
