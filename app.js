@@ -720,13 +720,22 @@ function renderTimeline(){
    notesByDate.get(dateKey).push(n);
  });
  
- // Get sorted unique dates
+ // Get sorted unique dates (oldest to newest)
  const sortedDates=[...notesByDate.keys()].sort();
  
- let globalSeq=1;
+ // Assign sequential numbers to notes based on creation order (oldest gets #1)
+ const noteNumberMap=new Map();
+ let seqCounter=1;
+ sortedDates.forEach(dateKey=>{
+   const dateNotes=notesByDate.get(dateKey);
+   dateNotes.forEach(n=>{
+     noteNumberMap.set(n.id, seqCounter++);
+   });
+ });
+ 
  let html='';
  
- // Process dates from oldest to newest for proper numbering, but render in reverse order (newest first)
+ // Process dates from newest to oldest for display (but numbering is based on creation order)
  const reversedDates=[...sortedDates].reverse();
  
  reversedDates.forEach((dateKey,dateIdx)=>{
@@ -734,15 +743,16 @@ function renderTimeline(){
    const formattedDate=new Date(dateKey).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
    
    // Add date divider before each date group
-   html+=`<div class="date-divider"><span>${formattedDate}</span></div>`;
+   html+=`<div class="date-divider"><span data-date="${dateKey}">${formattedDate}</span></div>`;
    
-   // Add notes for this date with sequential numbering
+   // Add notes for this date with their assigned numbers
    dateNotes.forEach((n,i)=>{
+     const noteNum=noteNumberMap.get(n.id);
      html+=`
       <div class="tentry rise ${i<4?"d"+i:""}" data-open="${n.id}">
        <div class="tcard">
          <div style="display:flex;gap:16px;align-items:flex-start">
-           <div class="tnum">${globalSeq}</div>
+           <div class="tnum">${noteNum}</div>
            <div style="flex:1;min-width:0">
              <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
              <h3>${esc(n.title)}</h3>
@@ -753,22 +763,173 @@ function renderTimeline(){
          </div>
        </div>
       </div>`;
-     globalSeq++;
    });
  });
- 
  $("#main").innerHTML=`
  <div class="viewhead rise">
    <div class="eyebrow">Evolution</div>
-   <h1 class="vt">Ideas attach; they are never replaced</h1>
+   <h1 class="vt">Ideas attach; they are never replaced <button class="btn btn-ghost btn-sm" id="calendarBtn" style="margin-left:12px;vertical-align:middle;padding:6px 12px;" title="Jump to date"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="16" height="16"><rect x="3" y="4" width="10" height="10" rx="1.5"/><path d="M8 2v2M3 8h10M6 2v2"/></svg></button></h1>
    <p class="sub">${exp} expansion${exp===1?"":"s"} · ${con} contradiction${con===1?"":"s"} on record. Every version stays accessible — nothing is ever deleted automatically.</p>
  </div>
  <div class="tl">
  ${html}
  </div>`;
+ 
+ // Calendar button handler
+ const calBtn=$("#calendarBtn");
+ if(calBtn){
+   calBtn.onclick=(e)=>{
+     e.stopPropagation();
+     showCalendarModal();
+   };
+ }
+ 
  $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
  $$(".delbtn").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
  bindSuggActs();
+}
+
+// Show calendar modal for date navigation
+function showCalendarModal(){
+ // Get all dates that have notes
+ const datesWithNotes=[...new Set(state.notes.map(n=>n.createdAt.split('T')[0]))].sort();
+ 
+ if(datesWithNotes.length===0){
+   alert('No thoughts added yet.');
+   return;
+ }
+ 
+ // Create calendar modal
+ const modal=document.createElement('div');
+ modal.className='modal-overlay';
+ modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+ 
+ const firstDate=new Date(datesWithNotes[0]);
+ const lastDate=new Date(datesWithNotes[datesWithNotes.length-1]);
+ 
+ // Start from the month of the first note
+ let currentMonth=firstDate.getMonth();
+ let currentYear=firstDate.getFullYear();
+ 
+ function renderCalendarMonth(month,year){
+   const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+   const dayNames=['Su','Mo','Tu','We','Th','Fr','Sa'];
+   
+   const firstDay=new Date(year,month,1);
+   const lastDay=new Date(year,month+1,0);
+   const startDay=firstDay.getDay();
+   const totalDays=lastDay.getDate();
+   
+   let daysHtml='';
+   // Empty cells for days before the first day of month
+   for(let i=0;i<startDay;i++){
+     daysHtml+='<div class="cal-day empty"></div>';
+   }
+   
+   // Day cells
+   for(let d=1;d<=totalDays;d++){
+     const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+     const hasNote=datesWithNotes.includes(dateStr);
+     const isToday=dateStr===new Date().toISOString().split('T')[0];
+     
+     if(hasNote){
+       daysHtml+=`<div class="cal-day has-note${isToday?' today':''}" data-date="${dateStr}">${d}</div>`;
+     }else{
+       daysHtml+=`<div class="cal-day${isToday?' today':''}">${d}</div>`;
+     }
+   }
+   
+   return `
+     <div class="cal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+       <button class="cal-nav" data-dir="prev" style="background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;">←</button>
+       <span class="cal-month-year" style="font-family:var(--disp);font-size:16px;font-weight:700;color:var(--ink);">${monthNames[month]} ${year}</span>
+       <button class="cal-nav" data-dir="next" style="background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;">→</button>
+     </div>
+     <div class="cal-weekdays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px;">
+       ${dayNames.map(d=>`<div style="text-align:center;font:600 10px var(--mono);color:var(--faint);padding:8px 0;">${d}</div>`).join('')}
+     </div>
+     <div class="cal-days" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+       ${daysHtml}
+     </div>
+   `;
+ }
+ 
+ modal.innerHTML=`
+   <div class="cal-modal" style="background:#0B1811;border:1px solid var(--line);border-radius:16px;padding:24px;min-width:340px;max-width:90vw;">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+       <h3 style="font-family:var(--disp);font-size:18px;color:var(--ink);margin:0;">Jump to Date</h3>
+       <button class="cal-close" style="background:none;border:none;color:var(--dim);font-size:24px;cursor:pointer;line-height:1;">&times;</button>
+     </div>
+     <div class="cal-content">${renderCalendarMonth(currentMonth,currentYear)}</div>
+     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+       <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);">
+         <span style="width:12px;height:12px;border-radius:3px;background:rgba(143,227,136,.2);border:1px solid rgba(143,227,136,.4);"></span>
+         Has thoughts
+       </span>
+       <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);">
+         <span style="width:12px;height:12px;border-radius:3px;background:rgba(143,227,136,.4);border:1px solid var(--leaf);"></span>
+         Today
+       </span>
+     </div>
+   </div>
+ `;
+ 
+ document.body.appendChild(modal);
+ 
+ // Bind events
+ const closeModal=()=>{document.body.removeChild(modal);};
+ modal.querySelector('.cal-close').onclick=closeModal;
+ modal.onclick=(e)=>{if(e.target===modal)closeModal();};
+ 
+ function updateCalendar(){
+   modal.querySelector('.cal-content').innerHTML=renderCalendarMonth(currentMonth,currentYear);
+   bindCalEvents();
+ }
+ 
+ function bindCalEvents(){
+   // Navigation buttons
+   modal.querySelectorAll('.cal-nav').forEach(btn=>{
+     btn.onclick=()=>{
+       const dir=btn.dataset.dir;
+       if(dir==='prev'){
+         currentMonth--;
+         if(currentMonth<0){currentMonth=11;currentYear--;}
+       }else{
+         currentMonth++;
+         if(currentMonth>11){currentMonth=0;currentYear++;}
+       }
+       // Clamp to valid range
+       if(currentYear<firstDate.getFullYear()||(currentYear===firstDate.getFullYear()&&currentMonth<firstDate.getMonth())){
+         currentMonth=firstDate.getMonth();currentYear=firstDate.getFullYear();
+       }
+       if(currentYear>lastDate.getFullYear()||(currentYear===lastDate.getFullYear()&&currentMonth>lastDate.getMonth())){
+         currentMonth=lastDate.getMonth();currentYear=lastDate.getFullYear();
+       }
+       updateCalendar();
+     };
+   });
+   
+   // Clickable dates with notes
+   modal.querySelectorAll('.cal-day.has-note').forEach(day=>{
+     day.onclick=()=>{
+       const dateStr=day.dataset.date;
+       closeModal();
+       // Scroll to that date in timeline
+       setView('timeline');
+       setTimeout(()=>{
+         const dateEl=document.querySelector(`.date-divider span[data-date="${dateStr}"]`);
+         if(dateEl){
+           dateEl.scrollIntoView({behavior:'smooth',block:'center'});
+         }
+       },100);
+     };
+     day.style.cssText='cursor:pointer;transition:.15s;';
+     day.onmouseenter=()=>{if(day.style.transform!=='scale(1.08)')day.style.transform='scale(1.08)';};
+     day.onmouseleave=()=>{day.style.transform='scale(1)';};
+   });
+ }
+ 
+ bindCalEvents();
 }
 
 /* ---------- search view ---------- */
