@@ -531,16 +531,16 @@ function renderCapture(){
   <div class="panel rise d2" id="assistpanel">
     <div class="lbl"><span class="amb">${ICON.spark}</span> KNOWLEDGE ASSISTANT</div>
     <div id="assistbody"><div class="assist-idle">Standing by.<br><br>When you process a note I will —<br>· preserve your original words <b>verbatim</b><br>· extract concepts &amp; topics<br>· refine readability into a <b>separate copy</b><br>· scan the whole knowledge base for possible connections<br><br>I only suggest. <b>You decide.</b></div></div>
-    <div id="processsteps" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+    <div id="processsteps" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
       <div class="lbl" style="margin-bottom:10px">PROCESSING STEPS</div>
       <div class="step" id="pst0"><span class="tick"></span><div class="st">Preserving original thought<em id="pstd0"></em></div></div>
       <div class="step" id="pst1"><span class="tick"></span><div class="st">Extracting concepts<em id="pstd1"></em></div></div>
       <div class="step" id="pst2"><span class="tick"></span><div class="st">Building structured output<em id="pstd2"></em></div></div>
       <div class="step" id="pst3"><span class="tick"></span><div class="st">Scanning knowledge base for relations<em id="pstd3"></em></div></div>
     </div>
-    <div id="airesults" style="display:none;margin-top:16px"></div>
   </div>
- </div>`;
+ </div>
+ <div id="aioutputarea" style="display:none;margin-top:20px" class="rise d3"></div>`;
  $$(".tab").forEach(t=>t.onclick=()=>{capTab=t.dataset.tab;renderCapture();});
  const ta=$("#ta"); if(ta){ ta.oninput=()=>$("#tcount").textContent=ta.value.length+" chars"; }
  $("#micbtn").onclick=toggleMic;
@@ -582,7 +582,7 @@ async function processNote(){
    // AUDIO INPUT: Send audio file directly to AI model
    btn.disabled=true;
    const body=$("#assistbody");
-   body.innerHTML=`<div class="step active"><span class="tick"></span><div class="st">Sending audio to AI for transcription & refinement...<em id="std0"></em></div></div><div id="results"></div>`;
+   body.innerHTML=`<div class="step active"><span class="tick"></span><div class="st">Sending audio to AI for transcription & refinement...<em id="std0"></em></div></div>`;
    
    try{
      const result=await sendAudioToAI(window.capturedAudio);
@@ -593,7 +593,7 @@ async function processNote(){
      text=result.transcript;
      window.aiRefinedVersion=result.refined;
      
-     $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio processed by AI: transcript extracted & refined</div></div><div id="results"></div>`;
+     $("#assistbody").innerHTML=`<div class="step done"><span class="tick">✓</span><div class="st">Audio processed by AI: transcript extracted & refined</div></div>`;
      await sleep(500);
    }catch(e){
      console.error("AI audio processing failed:",e);
@@ -605,10 +605,22 @@ async function processNote(){
  
  if(text.length<12){ toast("Add a little more thought before processing.","warn"); btn.disabled=false; return; }
  btn.disabled=true; stopRec();
- const body=$("#assistbody");
- const steps=[["Preserving original thought",""],["Extracting concepts",""],["Building structured output",""],["Scanning knowledge base for relations",""]];
- body.innerHTML=steps.map((s,i)=>`<div class="step" id="st${i}"><span class="tick"></span><div class="st">${s[0]}<em id="std${i}"></em></div></div>`).join("")+`<div id="results"></div>`;
- const act=i=>{$("#st"+i).classList.add("active")}, fin=(i,d)=>{$("#st"+i).classList.remove("active");$("#st"+i).classList.add("done");$("#st"+i).querySelector(".tick").textContent="✓";$("#std"+i).innerHTML=d;};
+ 
+ // Show the process steps area (already visible now, but ensure it's shown)
+ const stepsArea=$("#processsteps");
+ if(stepsArea) stepsArea.style.display="block";
+ 
+ // Reset all steps to inactive state
+ for(let i=0;i<=3;i++){
+   const st=$("#pst"+i);
+   if(st){
+     st.classList.remove("active","done");
+     st.querySelector(".tick").textContent="";
+     $("#pstd"+i).innerHTML="";
+   }
+ }
+ 
+ const act=i=>{const el=$("#pst"+i); if(el){el.classList.add("active");}}, fin=(i,d)=>{const el=$("#pst"+i); if(el){el.classList.remove("active");el.classList.add("done");el.querySelector(".tick").textContent="✓";$("#pstd"+i).innerHTML=d;}};
  
  act(0); await sleep(550);
  const originalText=text;
@@ -663,26 +675,33 @@ async function processNote(){
  fin(3,`${suggIds.length} possible connection${suggIds.length===1?"":"s"} found — suggestions only, nothing applied`);
  const suggHTML=captureSuggIds.length?`<div class="lbl" style="margin-top:18px"><span class="amb">${ICON.spark}</span> SUGGESTED RELATIONSHIPS — YOUR CALL</div><div id="ressuggs">${pendingForCaptureHTML()}</div>`
    :`<div class="empty" style="margin-top:14px">No related notes detected yet. Connections will surface as your base grows.</div>`;
- $("#results").innerHTML=`
-  <div class="rescard orig rise"><div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT · #${note.num} · PRESERVED VERBATIM</div><div class="notetext">${esc(note.original)}</div></div>
-  <div class="rescard ref rise d1"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
-    <div class="disclaim">${ICON.spark} ${settings.googleApiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
-    <div class="notetext">${esc(note.refined)}</div></div>
-  <div class="rescard rise d2"><div class="lbl">AI TRANSPARENCY</div>
-    <div class="interp">${esc(note.interpretation)}</div>
-    ${conceptChips(note.concepts)}
-    <div style="margin:12px 0">${confBlock(note.confidence)}</div>
-    <div class="lbl">POSSIBLE LIMITATIONS</div>
-    <ul class="limlist">${note.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
-  </div>
-  ${suggHTML}
-  <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-    <button class="btn btn-ghost btn-sm" id="openconst">${ICON.graph} Open in Constellation</button>
-    ${pendingCount()?`<button class="btn btn-amber btn-sm" id="openrev">Review queue (${pendingCount()})</button>`:""}
-  </div>`;
+ 
+ // Output results to the full-width area below both boxes
+ const outputArea=$("#aioutputarea");
+ if(outputArea){
+   outputArea.style.display="block";
+   outputArea.innerHTML=`
+    <div class="panel rise"><div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT · #${note.num} · PRESERVED VERBATIM</div><div class="notetext">${esc(note.original)}</div></div>
+    <div class="panel rise d1" style="margin-top:16px"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
+      <div class="disclaim">${ICON.spark} ${settings.googleApiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
+      <div class="notetext">${esc(note.refined)}</div></div>
+    <div class="panel rise d2" style="margin-top:16px"><div class="lbl">AI TRANSPARENCY</div>
+      <div class="interp">${esc(note.interpretation)}</div>
+      ${conceptChips(note.concepts)}
+      <div style="margin:12px 0">${confBlock(note.confidence)}</div>
+      <div class="lbl">POSSIBLE LIMITATIONS</div>
+      <ul class="limlist">${note.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
+    </div>
+    ${suggHTML}
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" id="openconst">${ICON.graph} Open in Constellation</button>
+      ${pendingCount()?`<button class="btn btn-amber btn-sm" id="openrev">Review queue (${pendingCount()})</button>`:""}
+    </div>`;
         const oc=$("#openconst"); if(oc) oc.onclick=()=>{selId=note.id;setView("graph");};
-  const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
-  if($("#ta"))$("#ta").value="";
+   const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
+ }
+ 
+ if($("#ta"))$("#ta").value="";
  // Clear uploaded audio info after processing
  window.capturedAudio=null;
  const uploadInfo=$("#uploadedfileinfo");
