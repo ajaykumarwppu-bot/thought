@@ -302,3 +302,12 @@ body.modal-open{overflow:hidden!important;touch-action:none;position:fixed;top:0
 
 /* Fix for first date divider - hide the connecting line above */
 .tl .date-divider:first-child::before{top:50%}
+
+/* Calendar Modal Styles */
+.cal-day{display:flex;align-items:center;justify-content:center;padding:8px 0;font-size:13px;color:var(--dim);border-radius:8px;transition:.15s}
+.cal-day.has-note{color:var(--ink);background:rgba(143,227,136,.15);border:1px solid rgba(143,227,136,.35);font-weight:600;cursor:pointer}
+.cal-day.has-note:hover{transform:scale(1.1);background:rgba(143,227,136,.25)}
+.cal-day.today{position:relative}
+.cal-day.today::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;background:var(--leaf);border-radius:50%}
+.cal-day.empty{visibility:hidden}
+.cal-nav:hover{background:rgba(143,227,136,.08)!important;border-color:var(--leaf)!important}
