@@ -708,8 +708,53 @@ function bindSuggActs(){
 /* ---------- timeline view ---------- */
 function renderTimeline(){
  const notes=[...state.notes].sort((a,b)=>a.createdAt<b.createdAt?-1:1).reverse();
- const exp=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="expands").length;
- const con=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="contradicts").length;
+ const exp=state.suggestions.filter(s=>s.status===\"accepted\"&&s.type===\"expands\").length;
+ const con=state.suggestions.filter(s=>s.status===\"accepted\"&&s.type===\"contradicts\").length;
+ 
+ // Group notes by date for sequential numbering with date dividers
+ const notesByDate=new Map();
+ notes.forEach(n=>{
+   const dateKey=n.createdAt.split('T')[0]; // YYYY-MM-DD
+   if(!notesByDate.has(dateKey)) notesByDate.set(dateKey,[]);
+   notesByDate.get(dateKey).push(n);
+ });
+ 
+ // Get sorted unique dates
+ const sortedDates=[...notesByDate.keys()].sort();
+ 
+ let globalSeq=1;
+ let html='';
+ 
+ sortedDates.forEach((dateKey,dateIdx)=>{
+   const dateNotes=notesByDate.get(dateKey);
+   const formattedDate=new Date(dateKey).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+   
+   // Add date divider (except for first date)
+   if(dateIdx>0){
+     html+=`<div class="date-divider"><span>${formattedDate}</span></div>`;
+   }
+   
+   // Add notes for this date with sequential numbering
+   dateNotes.forEach((n,i)=>{
+     html+=`
+      <div class="tentry rise ${i<4?"d"+i:""}" data-open="${n.id}">
+       <div class="tcard">
+         <div style="display:flex;gap:16px;align-items:flex-start">
+           <div class="tnum">${globalSeq}</div>
+           <div style="flex:1;min-width:0">
+             <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
+             <h3>${esc(n.title)}</h3>
+             <p>${esc(n.refined.replace(/\n+/g," ").slice(0,170))}…</p>
+             ${lineageBadges(n.id)}
+           </div>
+           <button class="delbtn" data-del="${n.id}" title="Delete note">🗑</button>
+         </div>
+       </div>
+      </div>`;
+     globalSeq++;
+   });
+ });
+ 
  $("#main").innerHTML=`
  <div class="viewhead rise">
    <div class="eyebrow">Evolution</div>
@@ -717,24 +762,10 @@ function renderTimeline(){
    <p class="sub">${exp} expansion${exp===1?"":"s"} · ${con} contradiction${con===1?"":"s"} on record. Every version stays accessible — nothing is ever deleted automatically.</p>
  </div>
  <div class="tl">
- ${notes.map((n,i)=>`
-  <div class="tentry rise ${i<4?"d"+i:""}" data-open="${n.id}">
-   <div class="tcard">
-     <div style="display:flex;gap:16px;align-items:flex-start">
-       <div class="tnum">#${n.num}</div>
-       <div style="flex:1;min-width:0">
-         <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
-         <h3>${esc(n.title)}</h3>
-         <p>${esc(n.refined.replace(/\n+/g," ").slice(0,170))}…</p>
-         ${lineageBadges(n.id)}
-       </div>
-       <button class="delbtn" data-del="${n.id}" title="Delete note">🗑</button>
-     </div>
-   </div>
-  </div>`).join("")}
+ ${html}
  </div>`;
- $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
- $$(".delbtn").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
+ $$(\"[data-open]\").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
+ $$(\".delbtn\").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
  bindSuggActs();
 }
 
@@ -1103,18 +1134,137 @@ function getCategoryColor(name){
 }
 
 function showAddCategoryModal(){
-  const existingNames=[...new Set(state.notes.flatMap(n=>n.domains)),...customCategories.map(c=>c.name)];
-  const name=prompt("Enter new category name:");
-  if(!name||!name.trim())return;
-  const trimmed=name.trim();
-  if(existingNames.includes(trimmed)){
-    toast(`Category "${trimmed}" already exists`,"warn");
-    return;
+  const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
+  const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
+  
+  // Create custom modal HTML
+  const modalHtml=`
+    <div class="modal-overlay" id="catmodaloverlay"></div>
+    <div class="category-modal" id="categorymodal">
+      <div class="catmodal-header">
+        <h3>Manage Categories</h3>
+        <button class="catmodal-close" id="catmodalclose">&times;</button>
+      </div>
+      <div class="catmodal-body">
+        <div class="cat-add-section">
+          <label class="cat-label">Add New Category</label>
+          <div class="cat-input-row">
+            <input type="text" id="newcatinput" placeholder="Enter category name..." autocomplete="off">
+            <button class="btn btn-sm btn-primary" id="addcatconfirm">Add</button>
+          </div>
+        </div>
+        <div class="cat-list-section">
+          <label class="cat-label">Existing Categories</label>
+          <div class="cat-list" id="catlist">
+            ${allCats.map(catName=>{
+              const isCustom=customCategories.some(c=>c.name===catName);
+              const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+              return `
+                <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
+                  <span class="cat-color-dot" style="background:${catColor}"></span>
+                  <span class="cat-name">${esc(catName)}</span>
+                  ${isCustom?`
+                    <div class="cat-actions">
+                      <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
+                      <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
+                    </div>
+                  `:`<span class="cat-system-tag">System</span>`}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Append modal to body
+  const tempDiv=document.createElement('div');
+  tempDiv.innerHTML=modalHtml;
+  document.body.appendChild(tempDiv.firstElementChild);
+  document.body.appendChild(tempDiv.children[1]);
+  
+  // Bind modal events
+  const overlay=$("#catmodaloverlay");
+  const modal=$("#categorymodal");
+  const closeBtn=$("#catmodalclose");
+  const addBtn=$("#addcatconfirm");
+  const input=$("#newcatinput");
+  
+  function closeModal(){
+    overlay.remove();
+    modal.remove();
   }
-  customCategories.push({name:trimmed,color:getCategoryColor(trimmed)});
-  saveCustomCategories();
-  toast(`Category "${trimmed}" created`,"ok");
-  renderGraph();
+  
+  overlay.onclick=closeModal;
+  closeBtn.onclick=closeModal;
+  
+  // Add new category
+  addBtn.onclick=()=>{
+    const name=input.value;
+    if(!name||!name.trim()){
+      toast("Please enter a category name","warn");
+      return;
+    }
+    const trimmed=name.trim();
+    if(allCats.includes(trimmed)){
+      toast(`Category "${trimmed}" already exists`,"warn");
+      return;
+    }
+    customCategories.push({name:trimmed,color:getCategoryColor(trimmed)});
+    saveCustomCategories();
+    toast(`Category "${trimmed}" created`,"ok");
+    closeModal();
+    renderGraph();
+  };
+  
+  // Allow Enter key to add
+  input.onkeydown=(e)=>{
+    if(e.key==="Enter") addBtn.click();
+  };
+  
+  // Edit category
+  $$(".cat-edit-btn").forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const oldName=btn.dataset.edit;
+      const newName=prompt("Edit category name:",oldName);
+      if(!newName||!newName.trim())return;
+      const trimmed=newName.trim();
+      if(trimmed===oldName)return;
+      if(allCats.includes(trimmed)){
+        toast(`Category "${trimmed}" already exists`,"warn");
+        return;
+      }
+      // Update custom category
+      const catIdx=customCategories.findIndex(c=>c.name===oldName);
+      if(catIdx>=0){
+        customCategories[catIdx].name=trimmed;
+        customCategories[catIdx].color=getCategoryColor(trimmed);
+        saveCustomCategories();
+        toast(`Category renamed to "${trimmed}"`,"ok");
+        closeModal();
+        renderGraph();
+      }
+    };
+  });
+  
+  // Delete category
+  $$(".cat-delete-btn").forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const catName=btn.dataset.del;
+      if(!confirm(`Delete category "${catName}"? This will not delete notes, only remove the category.`))return;
+      customCategories=customCategories.filter(c=>c.name!==catName);
+      saveCustomCategories();
+      toast(`Category "${catName}" deleted`,"ok");
+      closeModal();
+      renderGraph();
+    };
+  });
+  
+  // Focus input
+  setTimeout(()=>input.focus(),50);
 }
 
 /* ============================== AI API functions ============================== */

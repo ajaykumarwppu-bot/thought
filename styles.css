@@ -269,3 +269,32 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 .setting-hint{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:8px}
 .setting-section-title{font-family:var(--disp);font-weight:700;font-size:14px;color:var(--ink);margin:28px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
 #savesettings{width:100%;margin-top:12px}
+
+/* Category Modal Styles */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center}
+.category-modal{background:#0B1811;border:1px solid var(--line);border-radius:16px;width:min(420px,90vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 50px rgba(0,0,0,.5);animation:modalSlide .25s cubic-bezier(.2,.7,.3,1)}
+@keyframes modalSlide{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+.catmodal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
+.catmodal-header h3{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--ink)}
+.catmodal-close{background:none;border:none;color:var(--dim);font-size:26px;cursor:pointer;transition:.15s;line-height:1}
+.catmodal-close:hover{color:var(--ink)}
+.catmodal-body{padding:20px;overflow-y:auto;flex:1}
+.cat-add-section,.cat-list-section{margin-bottom:20px}
+.cat-label{display:block;font:600 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.cat-input-row{display:flex;gap:10px}
+.cat-input-row input{flex:1;background:#0A1810;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:14px var(--body);padding:11px 14px;outline:none;transition:.2s}
+.cat-input-row input:focus{border-color:var(--leaf);box-shadow:0 0 0 3px rgba(143,227,136,.1)}
+.cat-list{display:flex;flex-direction:column;gap:8px}
+.cat-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(9,20,14,.5);border:1px solid var(--line);border-radius:10px;transition:.15s}
+.cat-item:hover{border-color:var(--line2);transform:translateX(2px)}
+.cat-color-dot{width:12px;height:12px;border-radius:50%;flex:none}
+.cat-name{flex:1;font-size:13.5px;color:var(--ink)}
+.cat-actions{display:flex;gap:6px}
+.cat-edit-btn,.cat-delete-btn{background:none;border:none;cursor:pointer;font-size:14px;opacity:.7;transition:.15s;padding:4px}
+.cat-edit-btn:hover,.cat-delete-btn:hover{opacity:1;transform:scale(1.1)}
+.cat-system-tag{font:600 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);background:rgba(148,226,167,.08);border:1px solid rgba(148,226,167,.2);padding:3px 8px;border-radius:6px}
+
+/* Timeline date divider */
+.date-divider{position:relative;padding:20px 0 10px;text-align:center}
+.date-divider::before{content:"";position:absolute;left:7px;top:0;bottom:0;width:1.5px;background:linear-gradient(180deg,transparent,var(--leaf),transparent)}
+.date-divider span{display:inline-block;background:#0B1811;padding:6px 14px;border:1px solid var(--line);border-radius:20px;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
