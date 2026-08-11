@@ -708,8 +708,8 @@ function bindSuggActs(){
 /* ---------- timeline view ---------- */
 function renderTimeline(){
  const notes=[...state.notes].sort((a,b)=>a.createdAt<b.createdAt?-1:1).reverse();
- const exp=state.suggestions.filter(s=>s.status===\"accepted\"&&s.type===\"expands\").length;
- const con=state.suggestions.filter(s=>s.status===\"accepted\"&&s.type===\"contradicts\").length;
+ const exp=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="expands").length;
+ const con=state.suggestions.filter(s=>s.status==="accepted"&&s.type==="contradicts").length;
  
  // Group notes by date for sequential numbering with date dividers
  const notesByDate=new Map();
@@ -764,8 +764,8 @@ function renderTimeline(){
  <div class="tl">
  ${html}
  </div>`;
- $$(\"[data-open]\").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
- $$(\".delbtn\").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
+ $$("[data-open]").forEach(el=>el.onclick=()=>openNote(el.dataset.open));
+ $$(".delbtn").forEach(btn=>btn.onclick=e=>{e.stopPropagation();deleteNote(btn.dataset.del);});
  bindSuggActs();
 }
 
