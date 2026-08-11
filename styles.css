@@ -107,13 +107,13 @@ mark{background:rgba(143,227,136,.22);color:#D9F7D2;border-radius:3px;padding:0 
 .graphpanel{height:min(82vh,760px);min-height:560px;padding:0;overflow:hidden}
 #gcanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
 #gcanvas.drag{cursor:grabbing}
-.glegend{position:absolute;left:14px;top:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:68%;z-index:3}
+.glegend{position:absolute;left:14px;top:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:68%;z-index:2}
 .lchip{display:inline-flex;align-items:center;gap:6px;font:500 9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);background:rgba(7,17,12,.75);border:1px solid var(--line);padding:4px 10px;border-radius:999px}
 .lchip i{width:8px;height:8px;border-radius:50%;flex:none}
-.gpendpill{position:absolute;right:14px;top:12px;z-index:3;display:inline-flex;align-items:center;gap:8px;background:var(--ambersoft);border:1px solid rgba(245,184,75,.4);color:var(--amber);font:600 11px var(--mono);letter-spacing:.08em;padding:8px 14px;border-radius:999px;cursor:pointer;transition:.18s}
+.gpendpill{position:absolute;right:14px;top:12px;z-index:2;display:inline-flex;align-items:center;gap:8px;background:var(--ambersoft);border:1px solid rgba(245,184,75,.4);color:var(--amber);font:600 11px var(--mono);letter-spacing:.08em;padding:8px 14px;border-radius:999px;cursor:pointer;transition:.18s}
 .gpendpill:hover{background:rgba(245,184,75,.2)}
 .gpendpill .dot{width:7px;height:7px;border-radius:50%;background:var(--amber);animation:pulse 1.6s infinite}
-.ghint{position:absolute;right:16px;bottom:10px;font:400 9.5px var(--mono);letter-spacing:.1em;color:var(--faint);z-index:3}
+.ghint{position:absolute;right:16px;bottom:10px;font:400 9.5px var(--mono);letter-spacing:.1em;color:var(--faint);z-index:2}
 
 /* ---------- capture ---------- */
 .capgrid{display:grid;grid-template-columns:1.04fr .96fr;gap:20px;align-items:start}
@@ -271,8 +271,8 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 #savesettings{width:100%;margin-top:12px}
 
 /* Category Modal Styles */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center}
-.category-modal{background:#0B1811;border:1px solid var(--line);border-radius:16px;width:min(420px,90vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 50px rgba(0,0,0,.5);animation:modalSlide .25s cubic-bezier(.2,.7,.3,1)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center}
+.category-modal{background:#0B1811;border:1px solid var(--line);border-radius:16px;width:min(420px,90vw);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 50px rgba(0,0,0,.5);animation:modalSlide .25s cubic-bezier(.2,.7,.3,1);position:relative;z-index:1001}
 @keyframes modalSlide{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
 .catmodal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
 .catmodal-header h3{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--ink)}

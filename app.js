@@ -482,7 +482,7 @@ function renderGraph(){
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
     <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
-    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;left:14px;top:42px;z-index:3;font-size:10px;padding:5px 10px;height:auto;">+ Add Category</button>
+    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;left:14px;top:42px;z-index:2;font-size:10px;padding:5px 10px;height:auto;">+ Add Category</button>
     ${pend?`<div class="gpendpill" id="gpill"><span class="dot"></span>${pend} AWAITING REVIEW →</div>`:""}
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
