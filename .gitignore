@@ -1,3 +1,1 @@
-# Examples 1:
-
-# Example 2 (Project with artifacts):
+Nothing needs to be added to the .gitignore file since only a source code file (app.js) was modified and there are no build artifacts, dependencies, or temporary files in the changes.

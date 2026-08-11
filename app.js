@@ -58,8 +58,10 @@ const ASSOC={
 /* ============================== state & seed ============================== */
 const LSKEY="rhizome_state_v1";
 const DELETED_KEY="rhizome_deleted_notes";
+const CATEGORIES_KEY="rhizome_categories";
 let state=null;
 let deletedNoteIds=[];
+let customCategories=[];
 
 function loadDeletedIds(){
   try{
@@ -70,6 +72,17 @@ function loadDeletedIds(){
 
 function saveDeletedIds(){
   try{localStorage.setItem(DELETED_KEY,JSON.stringify(deletedNoteIds))}catch(e){}
+}
+
+function loadCustomCategories(){
+  try{
+    const c=localStorage.getItem(CATEGORIES_KEY);
+    if(c) customCategories=JSON.parse(c);
+  }catch(e){}
+}
+
+function saveCustomCategories(){
+  try{localStorage.setItem(CATEGORIES_KEY,JSON.stringify(customCategories))}catch(e){}
 }
 
 function seedState(){
@@ -463,15 +476,18 @@ function renderMain(){
 /* ---------- graph view ---------- */
 function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
+ const allCats=[...doms,...customCategories.map(c=>c.name)];
  const pend=pendingCount();
  $("#main").innerHTML=`
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
-    <div class="glegend">${doms.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||"#fff"}"></i>${esc(d)}</span>`).join("")}</div>
+    <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
+    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;left:14px;top:42px;z-index:3;font-size:10px;padding:5px 10px;height:auto;">+ Add Category</button>
     ${pend?`<div class="gpendpill" id="gpill"><span class="dot"></span>${pend} AWAITING REVIEW →</div>`:""}
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
  if(pend) $("#gpill").onclick=()=>setView("review");
+ $("#addcatbtn").onclick=showAddCategoryModal;
  initGraphCanvas(); syncGraph();
 }
 
@@ -1033,6 +1049,7 @@ function stopRec(){
 
 /* ============================== boot ============================== */
 loadDeletedIds();
+loadCustomCategories();
 load(); buildNav(); updateStats(); renderMain(); requestAnimationFrame(loop);
 // #capbtn removed - replaced with settings button
 $("#gsearch").addEventListener("keydown",e=>{if(e.key==="Enter"){setView("search");const v=$("#gsearch").value;setTimeout(()=>{$("#sq").value=v;runSearch(v);},30);}else if(e.key==="Enter"&&e.shiftKey){setView("capture");}});
@@ -1077,6 +1094,28 @@ $('#savesettings').onclick=saveSettings;
 
 // Load settings on boot
 loadSettings();
+
+/* ============================== category management ============================== */
+function getCategoryColor(name){
+  const colors=['#C8A2FF','#8FE388','#57E3C4','#FFD166','#FF9E64','#7CC7FF','#FF9AC2','#EAF0D0','#FF6B6B','#D4A5FF'];
+  const idx=customCategories.findIndex(c=>c.name===name);
+  return colors[idx%colors.length];
+}
+
+function showAddCategoryModal(){
+  const existingNames=[...new Set(state.notes.flatMap(n=>n.domains)),...customCategories.map(c=>c.name)];
+  const name=prompt("Enter new category name:");
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  if(existingNames.includes(trimmed)){
+    toast(`Category "${trimmed}" already exists`,"warn");
+    return;
+  }
+  customCategories.push({name:trimmed,color:getCategoryColor(trimmed)});
+  saveCustomCategories();
+  toast(`Category "${trimmed}" created`,"ok");
+  renderGraph();
+}
 
 /* ============================== AI API functions ============================== */
 
