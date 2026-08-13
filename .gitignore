@@ -1,13 +1,13 @@
-```gitignore
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
+*.class
 *.exe
 *.dll
 *.so
-*.class
+*.a
 *.out
 
 # Dependencies
@@ -24,49 +24,25 @@ venv/
 *.swp
 *.swo
 
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage and testing
+.coverage
+coverage/
+htmlcov/
+
 # Build directories
 dist/
 build/
 target/
-*.jar
-*.war
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
+.gradle/
 
-# Coverage reports
-coverage/
-htmlcov/
-.coverage
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-Thumbs.db
-```
-
-Wait, I need to reconsider. The modified files are only `app.js` and `styles.css`, which are source files. Let me check the rules again.
-
-Since the only changes are to source files (`app.js`, `styles.css`) and there are no build artifacts, dependencies, or temp files in the change list, according to rule #6, I should output an empty .gitignore.
-
-(empty)
+# Python specific
+.mypy_cache/
+.pytest_cache/
