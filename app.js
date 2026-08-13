@@ -477,18 +477,15 @@ function renderMain(){
 function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
  const allCats=[...doms,...customCategories.map(c=>c.name)];
- const pend=pendingCount();
+ 
  $("#main").innerHTML=`
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
     <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
-    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;left:14px;top:42px;z-index:3;font-size:10px;padding:5px 10px;height:auto;">+ Add Category</button>
-    ${pend?`<div class="gpendpill" id="gpill"><span class="dot"></span>${pend} AWAITING REVIEW →</div>`:""}
+    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;right:14px;top:12px;z-index:3;font-size:10px;padding:8px 14px;height:auto;border-radius:999px;background:rgba(143,227,136,.1);border-color:rgba(143,227,136,.35);color:var(--ink);">+ Add Category</button>
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
- if(pend) $("#gpill").onclick=()=>setView("review");
- $("#addcatbtn").onclick=showAddCategoryModal;
- initGraphCanvas(); syncGraph();
+	 $("#addcatbtn").onclick=showAddCategoryModal;
 }
 
 /* ---------- capture view ---------- */
@@ -795,12 +792,13 @@ function renderTimeline(){
  $("#main").innerHTML=`
  <div class="viewhead rise">
    <div class="eyebrow">Evolution</div>
-   <h1 class="vt">Ideas attach; they are never replaced <button class="btn btn-ghost btn-sm" id="calendarBtn" style="margin-left:12px;vertical-align:middle;padding:6px 12px;" title="Jump to date"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="16" height="16"><rect x="3" y="4" width="10" height="10" rx="1.5"/><path d="M8 2v2M3 8h10M6 2v2"/></svg></button></h1>
+   <h1 class="vt">Ideas attach; they are never replaced</h1>
    <p class="sub">${exp} expansion${exp===1?"":"s"} · ${con} contradiction${con===1?"":"s"} on record. Every version stays accessible — nothing is ever deleted automatically.</p>
  </div>
  <div class="tl">
  ${html}
- </div>`;
+ </div>
+ <button class="btn btn-ghost btn-sm" id="calendarBtn" style="position:fixed;right:24px;bottom:24px;z-index:100;padding:10px 14px;border-radius:999px;background:rgba(143,227,136,.1);border-color:rgba(143,227,136,.35);color:var(--ink);" title="Jump to date"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="16" height="16"><rect x="3" y="4" width="10" height="10" rx="1.5"/><path d="M8 2v2M3 8h10M6 2v2"/></svg></button>`;
  
  // Calendar button handler
  const calBtn=$("#calendarBtn");
