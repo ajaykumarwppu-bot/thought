@@ -482,10 +482,8 @@ function renderGraph(){
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
     <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
-    <button class="btn btn-sm btn-ghost" id="addcatbtn" style="position:absolute;right:14px;top:12px;z-index:3;font-size:10px;padding:8px 14px;height:auto;border-radius:999px;background:rgba(143,227,136,.1);border-color:rgba(143,227,136,.35);color:var(--ink);">+ Add Category</button>
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
-	 $("#addcatbtn").onclick=showAddCategoryModal;
 }
 
 /* ---------- capture view ---------- */
