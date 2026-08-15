@@ -1299,10 +1299,22 @@ function saveSettings(){
 
 function openSettingsPanel(){
   $('#settingspanel').classList.add('open');
+  renderCategoryList(); // Render categories when opening settings
 }
 
 function closeSettingsPanel(){
   $('#settingspanel').classList.remove('open');
+}
+
+// Settings tab switching
+function switchSettingsTab(tabName){
+  // Remove active class from all tabs and contents
+  $$('.settings-tab').forEach(t=>t.classList.remove('active'));
+  $$('.settings-tab-content').forEach(c=>c.classList.remove('active'));
+  
+  // Add active class to selected tab and content
+  $(`.settings-tab[data-tab="${tabName}"]`).classList.add('active');
+  $(`#tab-${tabName}`).classList.add('active');
 }
 
 // Settings event listeners
@@ -1310,6 +1322,11 @@ $('#settingsbtn').onclick=openSettingsPanel;
 $('#settingsclose').onclick=closeSettingsPanel;
 $('#settingsoverlay').onclick=closeSettingsPanel;
 $('#savesettings').onclick=saveSettings;
+
+// Tab switching event listeners
+$$('.settings-tab').forEach(tab=>{
+  tab.onclick=(e)=>switchSettingsTab(e.target.dataset.tab);
+});
 
 // Load settings on boot
 loadSettings();
@@ -1321,104 +1338,90 @@ function getCategoryColor(name){
   return colors[idx%colors.length];
 }
 
-function showAddCategoryModal(){
+// Render category list in settings panel
+function renderCategoryList(){
   const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
   const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
   
-  // Create custom modal HTML - modal is now INSIDE overlay for proper centering
-  const modalHtml=`
-    <div class="modal-overlay" id="catmodaloverlay">
-      <div class="category-modal" id="categorymodal">
-        <div class="catmodal-header">
-          <h3>Manage Categories</h3>
-          <button class="catmodal-close" id="catmodalclose">&times;</button>
+  const catListEl=$('#catlist');
+  if(!catListEl) return;
+  
+  catListEl.innerHTML=allCats.map(catName=>{
+    const isCustom=customCategories.some(c=>c.name===catName);
+    const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+    const catData=customCategories.find(c=>c.name===catName);
+    const hasDesc=catData&&catData.description;
+    return `
+      <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
+        <span class="cat-color-dot" style="background:${catColor}"></span>
+        <div class="cat-info-wrap">
+          <span class="cat-name">${esc(catName)}</span>
+          ${hasDesc?`<span class="cat-desc-preview">${esc(catData.description.substring(0,60))}${catData.description.length>60?'...':''}</span>`:''}
         </div>
-        <div class="catmodal-body">
-          <div class="cat-add-section">
-            <label class="cat-label">Add New Category</label>
-            <div class="cat-input-row">
-              <input type="text" id="newcatinput" placeholder="Enter category name..." autocomplete="off">
-              <button class="btn btn-sm btn-primary" id="addcatconfirm">Add</button>
-            </div>
+        ${isCustom?`
+          <div class="cat-actions">
+            <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
+            <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
           </div>
-          <div class="cat-list-section">
-            <label class="cat-label">Existing Categories</label>
-            <div class="cat-list" id="catlist">
-              ${allCats.map(catName=>{
-                const isCustom=customCategories.some(c=>c.name===catName);
-                const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
-                return `
-                  <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
-                    <span class="cat-color-dot" style="background:${catColor}"></span>
-                    <span class="cat-name">${esc(catName)}</span>
-                    ${isCustom?`
-                      <div class="cat-actions">
-                        <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
-                        <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
-                      </div>
-                    `:`<span class="cat-system-tag">System</span>`}
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          </div>
-        </div>
+        `:`<span class="cat-system-tag">System</span>`}
       </div>
-    </div>
-  `;
+    `;
+  }).join("");
   
-  // Append modal to body
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  // Bind edit/delete events after rendering
+  bindCategoryEvents();
+}
+
+// Bind category add/edit/delete events
+function bindCategoryEvents(){
+  const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
+  const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
   
-  // Add modal-open class to body to prevent background scrolling
-  document.body.classList.add('modal-open');
+  // Add new category button
+  const addBtn=$('#addcatconfirm');
+  const nameInput=$('#newcatinput');
+  const descInput=$('#newcatdesc');
   
-  // Bind modal events
-  const overlay=$("#catmodaloverlay");
-  const modal=$("#categorymodal");
-  const closeBtn=$("#catmodalclose");
-  const addBtn=$("#addcatconfirm");
-  const input=$("#newcatinput");
-  
-  function closeModal(){
-    // Remove modal-open class from body
-    document.body.classList.remove('modal-open');
-    if(overlay) overlay.remove();
-    if(modal) modal.remove();
+  if(addBtn&&nameInput){
+    addBtn.onclick=()=>{
+      const name=nameInput.value;
+      const description=descInput?descInput.value:'';
+      if(!name||!name.trim()){
+        toast("Please enter a category name","warn");
+        return;
+      }
+      const trimmed=name.trim();
+      if(allCats.includes(trimmed)){
+        toast(`Category "${trimmed}" already exists`,"warn");
+        return;
+      }
+      customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:description.trim()});
+      saveCustomCategories();
+      toast(`Category "${trimmed}" created`,"ok");
+      // Clear inputs
+      nameInput.value='';
+      if(descInput) descInput.value='';
+      renderCategoryList();
+      renderGraph();
+    };
+    
+    // Allow Enter key to add (only if description is empty or shift not pressed)
+    nameInput.onkeydown=(e)=>{
+      if(e.key==="Enter"&&!e.shiftKey){
+        e.preventDefault();
+        addBtn.click();
+      }
+    };
   }
-  
-  overlay.onclick=closeModal;
-  closeBtn.onclick=closeModal;
-  
-  // Add new category
-  addBtn.onclick=()=>{
-    const name=input.value;
-    if(!name||!name.trim()){
-      toast("Please enter a category name","warn");
-      return;
-    }
-    const trimmed=name.trim();
-    if(allCats.includes(trimmed)){
-      toast(`Category "${trimmed}" already exists`,"warn");
-      return;
-    }
-    customCategories.push({name:trimmed,color:getCategoryColor(trimmed)});
-    saveCustomCategories();
-    toast(`Category "${trimmed}" created`,"ok");
-    closeModal();
-    renderGraph();
-  };
-  
-  // Allow Enter key to add
-  input.onkeydown=(e)=>{
-    if(e.key==="Enter") addBtn.click();
-  };
   
   // Edit category
   $$(".cat-edit-btn").forEach(btn=>{
     btn.onclick=(e)=>{
       e.stopPropagation();
       const oldName=btn.dataset.edit;
+      const catData=customCategories.find(c=>c.name===oldName);
+      const currentDesc=catData?catData.description:'';
+      
       const newName=prompt("Edit category name:",oldName);
       if(!newName||!newName.trim())return;
       const trimmed=newName.trim();
@@ -1434,7 +1437,7 @@ function showAddCategoryModal(){
         customCategories[catIdx].color=getCategoryColor(trimmed);
         saveCustomCategories();
         toast(`Category renamed to "${trimmed}"`,"ok");
-        closeModal();
+        renderCategoryList();
         renderGraph();
       }
     };
@@ -1449,13 +1452,16 @@ function showAddCategoryModal(){
       customCategories=customCategories.filter(c=>c.name!==catName);
       saveCustomCategories();
       toast(`Category "${catName}" deleted`,"ok");
-      closeModal();
+      renderCategoryList();
       renderGraph();
     };
   });
-  
-  // Focus input
-  setTimeout(()=>input.focus(),50);
+}
+
+function showAddCategoryModal(){
+  // Switch to categories tab in settings panel
+  switchSettingsTab('categories');
+  openSettingsPanel();
 }
 
 /* ============================== AI API functions ============================== */
