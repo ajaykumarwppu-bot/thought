@@ -253,9 +253,9 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 
-/* ---------- settings panel ---------- */
-#settingspanel{position:fixed;bottom:-100vh;left:0;width:100%;height:95vh;background:#0B1811;z-index:100;box-shadow:0 -10px 50px rgba(0,0,0,.5);transition:bottom .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;border-radius:16px 16px 0 0}
-#settingspanel.open{bottom:0}
+/* ---------- settings panel (full app tab) ---------- */
+#settingspanel{position:fixed;top:-100vh;left:0;width:100%;height:100vh;background:#0B1811;z-index:100;box-shadow:0 10px 50px rgba(0,0,0,.5);transition:top .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column}
+#settingspanel.open{top:0}
 .settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;opacity:0;pointer-events:none;transition:opacity .3s}
 #settingspanel.open+.settings-overlay{opacity:1;pointer-events:auto}
 .settings-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line)}
@@ -264,11 +264,11 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 .settings-close:hover{color:var(--ink)}
 
 /* Settings Tabs */
-.settings-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);padding:0 24px}
+.settings-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);padding:0 24px;flex-shrink:0}
 .settings-tab{background:none;border:none;padding:14px 20px;font:600 13px var(--body);color:var(--dim);cursor:pointer;transition:.2s;border-bottom:2px solid transparent;margin-bottom:-1px}
 .settings-tab:hover{color:var(--ink)}
 .settings-tab.active{color:var(--leaf);border-bottom-color:var(--leaf)}
-.settings-tab-content{display:none;padding:24px;flex:1;overflow-y:auto}
+.settings-tab-content{display:none;padding:24px;flex:1;overflow-y:auto;height:calc(100vh - 140px)}
 .settings-tab-content.active{display:block}
 
 .setting-group{margin-bottom:24px}
@@ -294,8 +294,8 @@ body.modal-open{overflow:hidden!important;touch-action:none;position:fixed;top:0
 .cat-input-row{display:flex;gap:10px}
 .cat-input-row input{flex:1;background:#0A1810;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:14px var(--body);padding:11px 14px;outline:none;transition:.2s}
 .cat-input-row input:focus{border-color:var(--leaf);box-shadow:0 0 0 3px rgba(143,227,136,.1)}
-.cat-input-row textarea{width:100%;background:#0A1810;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:13px var(--body);padding:11px 14px;outline:none;transition:.2s;margin-top:10px;resize:vertical;min-height:70px;font-family:var(--body)}
-.cat-input-row textarea:focus{border-color:var(--leaf);box-shadow:0 0 0 3px rgba(143,227,136,.1)}
+.cat-input-row textarea{width:100%;background:#0A1810;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:13px var(--body);padding:14px 16px;outline:none;transition:.2s;margin-top:10px;resize:none;min-height:220px;font-family:var(--body);box-shadow:inset 0 1px 3px rgba(0,0,0,.2)}
+.cat-input-row textarea:focus{border-color:var(--leaf);box-shadow:0 0 0 3px rgba(143,227,136,.15),inset 0 1px 3px rgba(0,0,0,.2)}
 .cat-list{display:flex;flex-direction:column;gap:8px}
 .cat-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(9,20,14,.5);border:1px solid var(--line);border-radius:10px;transition:.15s}
 .cat-item:hover{border-color:var(--line2);transform:translateX(2px)}
