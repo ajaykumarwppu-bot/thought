@@ -34,7 +34,7 @@
 <div id="toasts"></div>
 <div id="printroot"></div>
 
-<!-- Settings Slide Panel -->
+<!-- Settings Panel (Bottom Tab Modal) -->
 <div id="settingspanel">
   <div class="settings-overlay" id="settingsoverlay"></div>
   <div class="settings-content">
@@ -42,7 +42,15 @@
       <h2>Settings</h2>
       <button class="settings-close" id="settingsclose">&times;</button>
     </div>
-    <div class="settings-body">
+    
+    <!-- Tab Navigation -->
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-tab="general">General</button>
+      <button class="settings-tab" data-tab="categories">Categories</button>
+    </div>
+    
+    <!-- Tab Content: General Settings -->
+    <div class="settings-tab-content active" id="tab-general">
       <div class="setting-group">
         <label for="googleapikey">Google API Key</label>
         <input type="text" id="googleapikey" placeholder="Enter your Google API key" autocomplete="off">
@@ -65,6 +73,24 @@
       </div>
       
       <button class="btn btn-primary" id="savesettings">Save Settings</button>
+    </div>
+    
+    <!-- Tab Content: Category Management -->
+    <div class="settings-tab-content" id="tab-categories">
+      <div class="cat-add-section">
+        <label class="cat-label">Add New Category</label>
+        <div class="cat-input-row">
+          <input type="text" id="newcatinput" placeholder="Category name..." autocomplete="off">
+          <button class="btn btn-sm btn-primary" id="addcatconfirm">Add</button>
+        </div>
+        <textarea id="newcatdesc" placeholder="Description & Rules (optional)..." rows="3" autocomplete="off"></textarea>
+      </div>
+      <div class="cat-list-section">
+        <label class="cat-label">Existing Categories</label>
+        <div class="cat-list" id="catlist">
+          <!-- Categories will be rendered here -->
+        </div>
+      </div>
     </div>
   </div>
 </div>
