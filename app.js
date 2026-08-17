@@ -19,41 +19,12 @@ const ICON={
 };
 
 /* ============================== lexicon ============================== */
-const LEXICON={
- "Feedback Loops":["feedback","loop","loops","response","responses","signal","signals","correction","corrections","adjust","adjusts","reinforce","reinforcement","output","adjustment"],
- "Trial & Error":["trial","error","errors","mistake","mistakes","attempt","attempts","fail","fails","failure","retry","experiment","experiments"],
- "Learning":["learn","learning","learned","study","practice","improve","improvement","adapt","skill","memory","teach"],
- "Adaptation":["adapt","adaptation","adaptations","evolve","evolution","evolutionary","survive","environment","selection","fitness"],
- "Fear Response":["fear","threat","threats","danger","anxiety","flight","fight","freeze","alarm","stress","amygdala","cortisol"],
- "Psychology":["mind","psychology","psychological","emotion","emotions","emotional","behavior","behaviour","cognitive","brain","mental"],
- "AI Agents":["agent","agents","architecture","architectures","llm","model","models","prompt","autonomous","planner","autocomplete"],
- "Systems Thinking":["system","systems","emergent","network","networks","structure","component","components","interaction","interconnected","holistic"],
- "Nature & Biology":["nature","biology","biological","organism","organisms","forest","ecosystem","species","roots","fungi","cell","neural","organismic"],
- "Philosophy of Mind":["consciousness","philosophy","philosophical","meaning","intention","subjective","qualia","epistemic","epistemological","reflection"],
- "Habits":["habit","habits","routine","routines","discipline","willpower","cue","trigger","automatic","gym"],
- "Writing & Ideas":["writing","essay","draft","metaphor","narrative","story","concept","concepts","idea","ideas","position"]
-};
-const CONCEPT_DOMAIN={
- "Feedback Loops":"Systems","Trial & Error":"Learning","Learning":"Learning","Adaptation":"Evolution",
- "Fear Response":"Psychology","Psychology":"Psychology","AI Agents":"Artificial Intelligence",
- "Systems Thinking":"Systems","Nature & Biology":"Biology","Philosophy of Mind":"Philosophy",
- "Habits":"Psychology","Writing & Ideas":"Ideas"
-};
-const DOMAIN_COLORS={"Psychology":"#C8A2FF","Biology":"#8FE388","Systems":"#57E3C4","Learning":"#FFD166","Evolution":"#FF9E64","Artificial Intelligence":"#7CC7FF","Philosophy":"#FF9AC2","Ideas":"#EAF0D0"};
-const ASSOC={
- "Feedback Loops":["Trial & Error","Learning","Adaptation"],
- "Trial & Error":["Feedback Loops","Learning"],
- "Learning":["Feedback Loops","Trial & Error","Adaptation","Habits"],
- "Adaptation":["Feedback Loops","Learning","Nature & Biology"],
- "Fear Response":["Psychology","Feedback Loops"],
- "AI Agents":["Systems Thinking","Feedback Loops"],
- "Systems Thinking":["AI Agents","Nature & Biology","Feedback Loops"],
- "Nature & Biology":["Adaptation","Systems Thinking"],
- "Philosophy of Mind":["Psychology","Learning"],
- "Habits":["Learning","Psychology"],
- "Psychology":["Fear Response","Philosophy of Mind","Habits"],
- "Writing & Ideas":["Philosophy of Mind"]
-};
+// LEXICON is now dynamically built from user-created categories only
+// No default/predefined categories - all categories must be created by user
+const LEXICON={};
+const CONCEPT_DOMAIN={};
+const DOMAIN_COLORS={};
+const ASSOC={};
 
 /* ============================== state & seed ============================== */
 const LSKEY="rhizome_state_v1";
@@ -78,11 +49,55 @@ function loadCustomCategories(){
   try{
     const c=localStorage.getItem(CATEGORIES_KEY);
     if(c) customCategories=JSON.parse(c);
+    // Rebuild LEXICON, CONCEPT_DOMAIN, DOMAIN_COLORS, ASSOC from user categories
+    rebuildCategoryStructures();
   }catch(e){}
 }
 
 function saveCustomCategories(){
   try{localStorage.setItem(CATEGORIES_KEY,JSON.stringify(customCategories))}catch(e){}
+}
+
+// Rebuild category structures from customCategories array
+function rebuildCategoryStructures(){
+  // Clear existing structures
+  Object.keys(LEXICON).forEach(k => delete LEXICON[k]);
+  Object.keys(CONCEPT_DOMAIN).forEach(k => delete CONCEPT_DOMAIN[k]);
+  Object.keys(DOMAIN_COLORS).forEach(k => delete DOMAIN_COLORS[k]);
+  Object.keys(ASSOC).forEach(k => delete ASSOC[k]);
+  
+  // Build from user-created categories only
+  customCategories.forEach(cat => {
+    const name = cat.name;
+    // Generate keywords from category name and description for matching
+    const keywords = generateKeywordsFromCategory(cat);
+    LEXICON[name] = keywords;
+    CONCEPT_DOMAIN[name] = name; // Each category is its own domain
+    DOMAIN_COLORS[name] = cat.color || getCategoryColor(name);
+    ASSOC[name] = []; // Empty array for future connections
+  });
+}
+
+// Generate keywords from category name, description and rules
+function generateKeywordsFromCategory(cat){
+  const keywords = new Set();
+  // Add words from category name
+  cat.name.toLowerCase().split(/[\s\-_]+/).forEach(w => {
+    if(w.length > 2) keywords.add(w);
+  });
+  // Add words from description
+  if(cat.description){
+    cat.description.toLowerCase().split(/[\s\-_,.]+/).forEach(w => {
+      if(w.length > 3) keywords.add(w);
+    });
+  }
+  // Add words from rules
+  if(cat.rules){
+    cat.rules.toLowerCase().split(/[\s\-_,.]+/).forEach(w => {
+      if(w.length > 3) keywords.add(w);
+    });
+  }
+  return [...keywords];
 }
 
 function seedState(){
