@@ -1394,6 +1394,22 @@ function bindCategoryEvents(){
         return;
       }
       customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:description.trim()});
+      
+      // Add to CONCEPT_DOMAIN so it appears in constellation
+      if(!CONCEPT_DOMAIN[trimmed]){
+        CONCEPT_DOMAIN[trimmed]=trimmed;
+      }
+      
+      // Add to DOMAIN_COLORS if not exists
+      if(!DOMAIN_COLORS[trimmed]){
+        DOMAIN_COLORS[trimmed]=getCategoryColor(trimmed);
+      }
+      
+      // Add to ASSOC with empty array for future connections
+      if(!ASSOC[trimmed]){
+        ASSOC[trimmed]=[];
+      }
+      
       saveCustomCategories();
       toast(`Category "${trimmed}" created`,"ok");
       // Clear inputs
