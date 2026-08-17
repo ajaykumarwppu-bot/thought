@@ -9,9 +9,6 @@ __pycache__/
 *.so
 *.a
 *.out
-dist/
-build/
-target/
 
 # Dependencies
 node_modules/
@@ -25,29 +22,29 @@ venv/
 *.log
 *.tmp
 *.swp
-*.swo
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
+
+# Build directories
+dist/
+build/
+target/
+.gradle/
+
+# Python specific
+*.pyc
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
 
 # System files
 .DS_Store
 Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Python specific
-.mypy_cache/
-.pytest_cache/
-
-# Java/Gradle
-.gradle/
 
 # Compressed files
 *.zip
@@ -68,7 +65,3 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
