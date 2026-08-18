@@ -183,14 +183,31 @@ async function extractConceptsAI(text){
     return extractConceptsLocal(text);
   }
   
-  const prompt=`You are a concept extraction assistant. Analyze the following text and identify 3-5 key concepts from this list: ${Object.keys(LEXICON).join(', ')}. If none match well, suggest relevant concepts based on the content.
+  // Build category info with descriptions and rules for the prompt
+  const categoryInfo = customCategories.map(cat => {
+    let info = `- **${cat.name}**`;
+    if(cat.description) info += `: ${cat.description}`;
+    if(cat.rules) info += ` (Rules: ${cat.rules})`;
+    return info;
+  }).join('\n');
+  
+  const prompt=`You are a concept extraction assistant that MUST follow strict categorization rules.
+Analyze the following text and identify 3-5 key concepts ONLY from these predefined categories:
+
+${categoryInfo}
+
+IMPORTANT RULES:
+1. Only use categories listed above. Do NOT invent new category names.
+2. If a concept does not clearly match ANY of the above categories based on their descriptions and rules, assign it to "Other" category.
+3. Match based on the meaning described in each category's description and rules, not just keyword matching.
+4. Return concepts with their scores (0-1) based on how well they match the category definition.
 
 Text: ${text}
 
 Return ONLY a JSON array in this exact format:
-[{"name":"Concept Name","score":0.9},{"name":"Another Concept","score":0.7}]
+[{"name":"Category Name","score":0.9},{"name":"Other","score":0.7}]
 
-Scores should be between 0 and 1 based on relevance.`;
+Scores should be between 0 and 1 based on relevance. If no category matches well, use "Other".`;
 
   try{
     const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -217,7 +234,15 @@ Scores should be between 0 and 1 based on relevance.`;
       const jsonMatch=responseText.match(/\[[\s\S]*\]/);
       if(jsonMatch){
         const concepts=JSON.parse(jsonMatch[0]);
-        return concepts.slice(0,5).map(c=>({name:c.name,score:Math.min(1,c.score||0.5)}));
+        // Ensure all returned concepts are either in customCategories or "Other"
+        const validConcepts = concepts.filter(c => {
+          return c.name === "Other" || customCategories.some(cat => cat.name === c.name);
+        });
+        // If no valid concepts found, default to "Other"
+        if(validConcepts.length === 0){
+          return [{name:"Other", score:0.5}];
+        }
+        return validConcepts.slice(0,5).map(c=>({name:c.name,score:Math.min(1,c.score||0.5)}));
       }
     }
   }catch(e){
@@ -237,6 +262,10 @@ function extractConceptsLocal(text){
    if(hits.size) out.push({name,hits:[...hits],score:Math.min(1,hits.size/3)});
  }
  out.sort((a,b)=>b.score-a.score);
+ // If no concepts matched from custom categories, default to "Other"
+ if(out.length === 0 && customCategories.length > 0){
+   return [{name:"Other", score:0.5}];
+ }
  return out.slice(0,5);
 }
 
@@ -1363,13 +1392,13 @@ function renderCategoryList(){
     const isCustom=customCategories.some(c=>c.name===catName);
     const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
     const catData=customCategories.find(c=>c.name===catName);
-    const hasDesc=catData&&catData.description;
+    const hasDesc=catData&&(catData.description||catData.rules);
     return `
       <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
         <span class="cat-color-dot" style="background:${catColor}"></span>
         <div class="cat-info-wrap">
           <span class="cat-name">${esc(catName)}</span>
-          ${hasDesc?`<span class="cat-desc-preview">${esc(catData.description.substring(0,60))}${catData.description.length>60?'...':''}</span>`:''}
+          ${hasDesc?`<span class="cat-desc-preview">${esc((catData.description||'')+(catData.rules?` | Rules: ${catData.rules}`:'')).substring(0,80)}${((catData.description||'').length+(catData.rules?' | Rules: '.length+catData.rules.length:0))>80?'...':''}</span>`:''}
         </div>
         ${isCustom?`
           <div class="cat-actions">
@@ -1408,7 +1437,15 @@ function bindCategoryEvents(){
         toast(`Category "${trimmed}" already exists`,"warn");
         return;
       }
-      customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:description.trim()});
+      // Parse rules from description (optional: look for "Rules:" marker)
+      let rulesText = '';
+      let descText = description.trim();
+      const rulesMatch = descText.match(/Rules:\s*(.*)/i);
+      if(rulesMatch){
+        rulesText = rulesMatch[1].trim();
+        descText = descText.replace(/Rules:\s*.*/i, '').trim();
+      }
+      customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:descText,rules:rulesText});
       
       // Add to CONCEPT_DOMAIN so it appears in constellation
       if(!CONCEPT_DOMAIN[trimmed]){
@@ -1423,6 +1460,13 @@ function bindCategoryEvents(){
       // Add to ASSOC with empty array for future connections
       if(!ASSOC[trimmed]){
         ASSOC[trimmed]=[];
+      }
+      
+      // Add "Other" as a fallback category (always available)
+      if(!CONCEPT_DOMAIN["Other"]){
+        CONCEPT_DOMAIN["Other"]="Other";
+        DOMAIN_COLORS["Other"]="#9CA3AF";
+        ASSOC["Other"]=[];
       }
       
       saveCustomCategories();
@@ -1450,6 +1494,8 @@ function bindCategoryEvents(){
       const oldName=btn.dataset.edit;
       const catData=customCategories.find(c=>c.name===oldName);
       const currentDesc=catData?catData.description:'';
+      const currentRules=catData?catData.rules:'';
+      const fullDescription=currentDesc+(currentRules?` Rules: ${currentRules}`:'');
       
       const newName=prompt("Edit category name:",oldName);
       if(!newName||!newName.trim())return;
