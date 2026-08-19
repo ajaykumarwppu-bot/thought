@@ -767,8 +767,18 @@ function renderReview(){
  bindSuggActs();
 }
 function bindSuggActs(){
- $$("[data-act]").forEach(b=>b.onclick=()=>resolveSuggestion(b.dataset.sid,b.dataset.act,b.dataset.ctx));
- $$("[data-nav]").forEach(b=>b.onclick=e=>{e.stopPropagation();openNote(b.dataset.nav);});
+  $$(".btn[data-act]").forEach(b=>b.onclick=()=>resolveSuggestion(b.dataset.sid,b.dataset.act,b.dataset.ctx));
+  $$(".btn[data-nav]").forEach(b=>b.onclick=e=>{e.stopPropagation();openNote(b.dataset.nav);});
+  // Bind category link/unlink buttons
+  $$(".cat-link-btn").forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const noteId=btn.dataset.note;
+      const catName=btn.dataset.cat;
+      const action=btn.dataset.action;
+      toggleNoteCategoryLink(noteId, catName, action);
+    };
+  });
 }
 
 /* ---------- timeline view ---------- */
@@ -1870,3 +1880,60 @@ Return ONLY the refined text, no explanations or additional commentary.`;
   return '';
 }
 
+
+/* ============================== category assignment UI ============================== */
+function renderCategoryAssignmentUI(noteId){
+  const note=noteOf(noteId);
+  if(!note) return "";
+  
+  const allCats=[...new Set([...customCategories.map(c=>c.name)])];
+  if(allCats.length===0) return `<div class="empty" style="padding:8px 0">No categories created yet. Add categories in Settings.</div>`;
+  
+  const currentDomains=note.domains||[];
+  
+  return `
+    <div class="cat-assign-section">
+      <div class="lbl"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="11" height="11"><path d="M2 9.5L4.5 3h7L14 9.5V13H2z"/><path d="M2 9.5h4l1 2h2l1-2h4"/></svg> LINK TO CATEGORIES</div>
+      <p class="setting-hint" style="margin-bottom:10px;font-size:11px">Link this thought to categories. AI auto-assigns based on category rules, but you have full manual control.</p>
+      <div class="cat-assign-grid">
+        ${allCats.map(catName=>{
+          const isLinked=currentDomains.includes(catName);
+          const catData=customCategories.find(c=>c.name===catName);
+          const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+          const hasDesc=catData&&(catData.description||catData.rules);
+          return `
+            <div class="cat-assign-item ${isLinked?"linked":""}" data-cat="${esc(catName)}" data-note="${noteId}">
+              <div class="cat-assign-header">
+                <span class="cat-color-dot" style="background:${catColor}"></span>
+                <span class="cat-assign-name">${esc(catName)}</span>
+                <button class="cat-link-btn ${isLinked?"linked":""}" data-action="${isLinked?"unlink":"link"}" data-cat="${esc(catName)}" data-note="${noteId}">
+                  ${isLinked?"✓ Linked":"+ Link"}
+                </button>
+              </div>
+              ${hasDesc?`<div class="cat-assign-desc">${esc((catData.description||'')+(catData.rules?` | Rules: ${catData.rules}`:'')).substring(0,100)}${((catData.description||'').length+(catData.rules?' | Rules: '.length+catData.rules.length:0))>100?'...':''}</div>`:''}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+// Function to link/unlink a note to a category
+function toggleNoteCategoryLink(noteId, catName, action){
+  const note=noteOf(noteId);
+  if(!note) return;
+  
+  if(action==="link"){
+    if(!note.domains.includes(catName)){
+      note.domains.push(catName);
+    }
+  } else if(action==="unlink"){
+    note.domains=note.domains.filter(d=>d!==catName);
+  }
+  
+  save();
+  renderInspector(noteId);
+  renderGraph();
+  toast(`Note #${note.num} ${action==="link"?"linked to":"unlinked from"} "${catName}"`,"ok");
+}
