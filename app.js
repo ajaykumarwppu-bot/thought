@@ -32,7 +32,7 @@ const DELETED_KEY="rhizome_deleted_notes";
 const CATEGORIES_KEY="rhizome_categories";
 let state=null;
 let deletedNoteIds=[];
-let customCategories=[];
+let customCategories=[]; // Each category: {name, color, description, rules, subcategories: [{name, description}]}
 
 function loadDeletedIds(){
   try{
