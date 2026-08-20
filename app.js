@@ -33,6 +33,8 @@ const CATEGORIES_KEY="rhizome_categories";
 let state=null;
 let deletedNoteIds=[];
 let customCategories=[]; // Each category: {name, color, description, rules, subcategories: [{name, description}]}
+// Parent-child relationships for subcategories are stored in the subcategories array
+// Each subcategory can also be linked to notes independently
 
 function loadDeletedIds(){
   try{
@@ -68,7 +70,7 @@ function rebuildCategoryStructures(){
   Object.keys(DOMAIN_COLORS).forEach(k => delete DOMAIN_COLORS[k]);
   Object.keys(ASSOC).forEach(k => delete ASSOC[k]);
   
-  // Build from user-created categories only
+  // Build from user-created categories only (including subcategories)
   customCategories.forEach(cat => {
     const name = cat.name;
     // Generate keywords from category name and description for matching
@@ -77,7 +79,39 @@ function rebuildCategoryStructures(){
     CONCEPT_DOMAIN[name] = name; // Each category is its own domain
     DOMAIN_COLORS[name] = cat.color || getCategoryColor(name);
     ASSOC[name] = []; // Empty array for future connections
+    
+    // Also add subcategories as separate entries with parent reference
+    if(cat.subcategories && cat.subcategories.length > 0){
+      cat.subcategories.forEach(subcat => {
+        const subName = `${name} > ${subcat.name}`;
+        const subKeywords = generateKeywordsFromSubcategory(cat, subcat);
+        LEXICON[subName] = subKeywords;
+        CONCEPT_DOMAIN[subName] = name; // Subcategory belongs to parent domain
+        DOMAIN_COLORS[subName] = cat.color || getCategoryColor(name); // Use parent's color
+        ASSOC[subName] = [];
+      });
+    }
   });
+}
+
+// Generate keywords from subcategory name and description
+function generateKeywordsFromSubcategory(parentCat, subcat){
+  const keywords = new Set();
+  // Add words from parent category name (for context)
+  parentCat.name.toLowerCase().split(/[\s\-_]+/).forEach(w => {
+    if(w.length > 2) keywords.add(w);
+  });
+  // Add words from subcategory name
+  subcat.name.toLowerCase().split(/[\s\-_]+/).forEach(w => {
+    if(w.length > 2) keywords.add(w);
+  });
+  // Add words from subcategory description
+  if(subcat.description){
+    subcat.description.toLowerCase().split(/[\s\-_,.]+/).forEach(w => {
+      if(w.length > 3) keywords.add(w);
+    });
+  }
+  return [...keywords];
 }
 
 // Generate keywords from category name, description and rules
@@ -1142,11 +1176,11 @@ function syncGraph(){
  graph.nodes.forEach(n=>{n.r=Math.min(17,9+nodeDeg(n.id)*2.4);});
  graph.edges=acceptedEdges().map(s=>({a:s.a,b:s.b,type:s.type}));
  
- // Add category nodes for constellation display
+ // Add category nodes for constellation display (including subcategories)
  customCategories.forEach(cat=>{
+   // Add main category node
    const catId="cat_"+cat.name;
    if(!graph.nodes.find(n=>n.id===catId)){
-     // Add category node at a random position
      graph.nodes.push({
        id:catId,
        x:Math.random()*graph.w,
@@ -1155,20 +1189,77 @@ function syncGraph(){
        born:performance.now(),
        isCategory:true,
        categoryName:cat.name,
-       categoryColor:cat.color||getCategoryColor(cat.name)
+       categoryColor:cat.color||getCategoryColor(cat.name),
+       isParent:true
+     });
+   }
+   
+   // Add subcategory nodes
+   if(cat.subcategories&&cat.subcategories.length>0){
+     cat.subcategories.forEach((subcat, idx)=>{
+       const subcatId=`cat_${cat.name}_sub_${idx}`;
+       if(!graph.nodes.find(n=>n.id===subcatId)){
+         graph.nodes.push({
+           id:subcatId,
+           x:Math.random()*graph.w,
+           y:Math.random()*graph.h,
+           vx:0,vy:0,
+           born:performance.now(),
+           isCategory:true,
+           isSubcategory:true,
+           parentCategory:cat.name,
+           categoryName:`${cat.name} > ${subcat.name}`,
+           subcategoryName:subcat.name,
+           categoryColor:cat.color||getCategoryColor(cat.name)
+         });
+         
+         // Add edge between parent category and subcategory
+         const edgeExists=graph.edges.some(e=>
+           (e.a===catId&&e.b===subcatId)||(e.a===subcatId&&e.b===catId)
+         );
+         if(!edgeExists){
+           graph.edges.push({a:catId,b:subcatId,type:"relates",isCategoryLink:true,isParentChild:true});
+         }
+       }
      });
    }
  });
  
  // Remove category nodes that no longer exist in customCategories
- const validCatIds=new Set(customCategories.map(c=>"cat_"+c.name));
+ const validCatIds=new Set();
+ customCategories.forEach(c=>{
+   validCatIds.add("cat_"+c.name);
+   if(c.subcategories){
+     c.subcategories.forEach((_,idx)=>{
+       validCatIds.add(`cat_${c.name}_sub_${idx}`);
+     });
+   }
+ });
  graph.nodes=graph.nodes.filter(n=>!n.isCategory||validCatIds.has(n.id));
  
- // Add edges between notes and their linked categories
+ // Add edges between notes and their linked categories (including subcategories)
  state.notes.forEach(note=>{
    if(note.domains&&note.domains.length>0){
      note.domains.forEach(domainName=>{
-       const catId="cat_"+domainName;
+       // Check if this is a subcategory (format: "Parent > Subcategory")
+       let catId;
+       if(domainName.includes(' > ')){
+         // This is a subcategory - find the parent category and subcategory index
+         const parts = domainName.split(' > ');
+         const parentName = parts[0];
+         const subcatName = parts.slice(1).join(' > ');
+         const parentCat = customCategories.find(c=>c.name===parentName);
+         if(parentCat&&parentCat.subcategories){
+           const subcatIdx = parentCat.subcategories.findIndex(s=>s.name===subcatName);
+           if(subcatIdx>=0){
+             catId=`cat_${parentName}_sub_${subcatIdx}`;
+           }
+         }
+       } else {
+         // This is a main category
+         catId="cat_"+domainName;
+       }
+       
        // Check if edge already exists
        const edgeExists=graph.edges.some(e=>
          (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
@@ -1216,7 +1307,7 @@ function drawGraph(now){
    c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.setLineDash([]);c.globalAlpha=1;
  });
  graph.nodes.forEach(n=>{
-   // Handle category nodes
+   // Handle category nodes (including subcategories)
    if(n.isCategory){
      const col=n.categoryColor||"#9CA3AF";
      const age=(now-n.born)/500, sc=Math.min(1,age);
@@ -1226,9 +1317,14 @@ function drawGraph(now){
      c.beginPath();c.arc(n.x,n.y,r,0,7);c.fillStyle=col;c.fill();c.shadowBlur=0;
      c.beginPath();c.arc(n.x,n.y,r,0,7);c.strokeStyle="rgba(255,255,255,.28)";c.lineWidth=1;c.stroke();
      const hov=graph.hover===n;
+     
+     // Different icon for subcategories
+     let icon = "📁";
+     if(n.isSubcategory) icon = "📂";
+     
      c.font=(hov?"600 12px":"600 10px")+" 'IBM Plex Mono',monospace";
      c.textAlign="center"; c.fillStyle=hov?"rgba(255,255,255,.95)":"rgba(255,255,255,.75)";
-     c.fillText("📁 "+n.categoryName,n.x,n.y+r+15);
+     c.fillText(icon+" "+n.categoryName,n.x,n.y+r+15);
      return;
    }
    // Handle note nodes
@@ -1403,6 +1499,25 @@ function renderCategoryList(){
     const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
     const catData=customCategories.find(c=>c.name===catName);
     const hasDesc=catData&&(catData.description||catData.rules);
+    const hasSubcats=catData&&catData.subcategories&&catData.subcategories.length>0;
+    
+    // Render subcategories if they exist
+    let subcatsHtml = '';
+    if(hasSubcats){
+      subcatsHtml = `<div class="subcat-list">`;
+      catData.subcategories.forEach((subcat, idx) => {
+        subcatsHtml += `
+          <div class="subcat-item" data-parent="${esc(catName)}" data-idx="${idx}">
+            <span class="subcat-arrow">└─</span>
+            <span class="subcat-name">${esc(subcat.name)}</span>
+            ${subcat.description?`<span class="subcat-desc">${esc(subcat.description.substring(0,50))}${subcat.description.length>50?'...':''}</span>`:''}
+            <button class="subcat-delete-btn" data-parent="${esc(catName)}" data-idx="${idx}" title="Delete subcategory">🗑</button>
+          </div>
+        `;
+      });
+      subcatsHtml += `</div>`;
+    }
+    
     return `
       <div class="cat-item" data-cat="${esc(catName)}" data-custom="${isCustom}">
         <span class="cat-color-dot" style="background:${catColor}"></span>
@@ -1412,15 +1527,17 @@ function renderCategoryList(){
         </div>
         ${isCustom?`
           <div class="cat-actions">
+            <button class="cat-add-subcat-btn" data-add-subcat="${esc(catName)}" title="Add subcategory">➕</button>
             <button class="cat-edit-btn" data-edit="${esc(catName)}" title="Edit">✏️</button>
             <button class="cat-delete-btn" data-del="${esc(catName)}" title="Delete">🗑</button>
           </div>
         `:`<span class="cat-system-tag">System</span>`}
+        ${subcatsHtml}
       </div>
     `;
   }).join("");
   
-  // Bind edit/delete events after rendering
+  // Bind edit/delete/add-subcategory events after rendering
   bindCategoryEvents();
 }
 
@@ -1455,7 +1572,7 @@ function bindCategoryEvents(){
         rulesText = rulesMatch[1].trim();
         descText = descText.replace(/Rules:\s*.*/i, '').trim();
       }
-      customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:descText,rules:rulesText});
+      customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:descText,rules:rulesText,subcategories:[]});
       
       saveCustomCategories();
       toast(`Category "${trimmed}" created`,"ok");
@@ -1515,6 +1632,57 @@ function bindCategoryEvents(){
       customCategories=customCategories.filter(c=>c.name!==catName);
       saveCustomCategories();
       toast(`Category "${catName}" deleted`,"ok");
+      renderCategoryList();
+      renderGraph();
+    };
+  });
+  
+  // Add subcategory button
+  $$(".cat-add-subcat-btn").forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const parentName=btn.dataset.addSubcat;
+      const catData=customCategories.find(c=>c.name===parentName);
+      if(!catData)return;
+      
+      const subcatName=prompt(`Enter subcategory name for "${parentName}":`);
+      if(!subcatName||!subcatName.trim())return;
+      const trimmed=subcatName.trim();
+      
+      // Check if subcategory already exists
+      if(catData.subcategories&&catData.subcategories.some(s=>s.name.toLowerCase()===trimmed.toLowerCase())){
+        toast(`Subcategory "${trimmed}" already exists in "${parentName}"`,"warn");
+        return;
+      }
+      
+      const subcatDesc=prompt(`Enter description for "${trimmed}" (optional):`)||'';
+      
+      // Initialize subcategories array if not exists
+      if(!catData.subcategories) catData.subcategories=[];
+      
+      catData.subcategories.push({name:trimmed,description:subcatDesc});
+      saveCustomCategories();
+      toast(`Subcategory "${trimmed}" added to "${parentName}"`,"ok");
+      renderCategoryList();
+      renderGraph();
+    };
+  });
+  
+  // Delete subcategory button
+  $$(".subcat-delete-btn").forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const parentName=btn.dataset.parent;
+      const idx=parseInt(btn.dataset.idx);
+      const catData=customCategories.find(c=>c.name===parentName);
+      if(!catData||!catData.subcategories||!catData.subcategories[idx])return;
+      
+      const subcatName=catData.subcategories[idx].name;
+      if(!confirm(`Delete subcategory "${subcatName}" from "${parentName}"?`))return;
+      
+      catData.subcategories.splice(idx,1);
+      saveCustomCategories();
+      toast(`Subcategory "${subcatName}" deleted`,"ok");
       renderCategoryList();
       renderGraph();
     };
@@ -1872,29 +2040,56 @@ function renderCategoryAssignmentUI(noteId){
   
   const currentDomains=note.domains||[];
   
+  // Build category list with subcategories
+  let categoriesHtml = '';
+  allCats.forEach(catName => {
+    const catData=customCategories.find(c=>c.name===catName);
+    const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+    const hasDesc=catData&&(catData.description||catData.rules);
+    const isLinked=currentDomains.includes(catName);
+    
+    // Render main category
+    categoriesHtml += `
+      <div class="cat-assign-item ${isLinked?"linked":""}" data-cat="${esc(catName)}" data-note="${noteId}">
+        <div class="cat-assign-header">
+          <span class="cat-color-dot" style="background:${catColor}"></span>
+          <span class="cat-assign-name">${esc(catName)}</span>
+          <button class="cat-link-btn ${isLinked?"linked":""}" data-action="${isLinked?"unlink":"link"}" data-cat="${esc(catName)}" data-note="${noteId}">
+            ${isLinked?"✓ Linked":"+ Link"}
+          </button>
+        </div>
+        ${hasDesc?`<div class="cat-assign-desc">${esc((catData.description||'')+(catData.rules?` | Rules: ${catData.rules}`:'')).substring(0,100)}${((catData.description||'').length+(catData.rules?' | Rules: '.length+catData.rules.length:0))>100?'...':''}</div>`:''}
+    `;
+    
+    // Render subcategories if they exist
+    if(catData&&catData.subcategories&&catData.subcategories.length>0){
+      categoriesHtml += `<div class="subcat-assign-list">`;
+      catData.subcategories.forEach((subcat, idx) => {
+        const subcatFullName = `${catName} > ${subcat.name}`;
+        const isSubcatLinked=currentDomains.includes(subcatFullName);
+        categoriesHtml += `
+          <div class="subcat-assign-item ${isSubcatLinked?"linked":""}" data-cat="${esc(subcatFullName)}" data-note="${noteId}">
+            <span class="subcat-arrow">└─</span>
+            <span class="subcat-assign-name">${esc(subcat.name)}</span>
+            <button class="cat-link-btn ${isSubcatLinked?"linked":""}" data-action="${isSubcatLinked?"unlink":"link"}" data-cat="${esc(subcatFullName)}" data-note="${noteId}">
+              ${isSubcatLinked?"✓ Linked":"+ Link"}
+            </button>
+            ${subcat.description?`<div class="subcat-assign-desc">${esc(subcat.description.substring(0,80))}${subcat.description.length>80?'...':''}</div>`:''}
+          </div>
+        `;
+      });
+      categoriesHtml += `</div>`;
+    }
+    
+    categoriesHtml += `</div>`;
+  });
+  
   return `
     <div class="cat-assign-section">
       <div class="lbl"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="11" height="11"><path d="M2 9.5L4.5 3h7L14 9.5V13H2z"/><path d="M2 9.5h4l1 2h2l1-2h4"/></svg> LINK TO CATEGORIES</div>
       <p class="setting-hint" style="margin-bottom:10px;font-size:11px">Link this thought to categories manually. Select from your created categories below.</p>
       <div class="cat-assign-grid">
-        ${allCats.map(catName=>{
-          const isLinked=currentDomains.includes(catName);
-          const catData=customCategories.find(c=>c.name===catName);
-          const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
-          const hasDesc=catData&&(catData.description||catData.rules);
-          return `
-            <div class="cat-assign-item ${isLinked?"linked":""}" data-cat="${esc(catName)}" data-note="${noteId}">
-              <div class="cat-assign-header">
-                <span class="cat-color-dot" style="background:${catColor}"></span>
-                <span class="cat-assign-name">${esc(catName)}</span>
-                <button class="cat-link-btn ${isLinked?"linked":""}" data-action="${isLinked?"unlink":"link"}" data-cat="${esc(catName)}" data-note="${noteId}">
-                  ${isLinked?"✓ Linked":"+ Link"}
-                </button>
-              </div>
-              ${hasDesc?`<div class="cat-assign-desc">${esc((catData.description||'')+(catData.rules?` | Rules: ${catData.rules}`:'')).substring(0,100)}${((catData.description||'').length+(catData.rules?' | Rules: '.length+catData.rules.length:0))>100?'...':''}</div>`:''}
-            </div>
-          `;
-        }).join("")}
+        ${categoriesHtml}
       </div>
     </div>
   `;
