@@ -472,12 +472,19 @@ function renderMain(){
 /* ---------- graph view ---------- */
 function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
+ // Only show main categories (not subcategories) in the legend at the top
  const allCats=[...new Set([...doms,...customCategories.map(c=>c.name)])];
  
  $("#main").innerHTML=`
   <div class="panel graphpanel rise d1" id="gwrap">
     <canvas id="gcanvas"></canvas>
-    <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
+    <div class="glegend">${allCats.map(d=>{
+      // Check if this is a subcategory (contains " > ")
+      if(d.includes(' > ')){
+        return ''; // Skip subcategories in legend
+      }
+      return `<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`;
+    }).filter(s=>s).join("")}</div>
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
   
@@ -1273,28 +1280,75 @@ function syncGraph(){
 }
 function stepGraph(){
  const ns=graph.nodes,W=graph.w,H=graph.h;
+ // Improved physics: stronger repulsion, better spring forces (Obsidian-like)
  for(let i=0;i<ns.length;i++)for(let j=i+1;j<ns.length;j++){
-   const a=ns[i],b=ns[j];let dx=b.x-a.x,dy=b.y-a.y;let d2=Math.max(60,dx*dx+dy*dy),d=Math.sqrt(d2);
-   const f=3200/d2; dx/=d;dy/=d; a.vx-=dx*f;a.vy-=dy*f;b.vx+=dx*f;b.vy+=dy*f;
+   const a=ns[i],b=ns[j];let dx=b.x-a.x,dy=b.y-a.y;let d2=Math.max(80,dx*dx+dy*dy),d=Math.sqrt(d2);
+   const f=4500/d2; dx/=d;dy/=d; a.vx-=dx*f;a.vy-=dy*f;b.vx+=dx*f;b.vy+=dy*f;
  }
+ // Spring forces for edges with improved damping
  graph.edges.forEach(e=>{const a=ns.find(n=>n.id===e.a),b=ns.find(n=>n.id===e.b);if(!a||!b)return;
-   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;const f=(d-140)*.015;dx/=d;dy/=d;
-   a.vx+=dx*f*d*.06;a.vy+=dy*f*d*.06;b.vx-=dx*f*d*.06;b.vy-=dy*f*d*.06;});
+   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;const restLen=e.isCategoryLink?100:140;
+   const f=(d-restLen)*0.02;dx/=d;dy/=d;
+   // Stronger spring force for category links
+   const strength=e.isCategoryLink?0.08:0.05;
+   a.vx+=dx*f*strength;a.vy+=dy*f*strength;b.vx-=dx*f*strength;b.vy-=dy*f*strength;});
  ns.forEach(n=>{
-   n.vx+=(W/2-n.x)*.012; n.vy+=(H/2-n.y)*.014;
+   // Center gravity and velocity damping (Obsidian-like behavior)
+   n.vx+=(W/2-n.x)*.008; n.vy+=(H/2-n.y)*.008;
    if(graph.drag&&graph.drag.n===n){n.vx=0;n.vy=0;return;}
-   n.vx*=.85;n.vy*=.85; n.x+=n.vx;n.y+=n.vy;
+   // Better velocity damping for smoother movement
+   n.vx*=.90;n.vy*=.90; n.x+=n.vx;n.y+=n.vy;
    n.x=Math.max(30,Math.min(W-30,n.x)); n.y=Math.max(26,Math.min(H-40,n.y));
  });
 }
 const EDGE_COLORS={expands:"#8FE388",contradicts:"#FF6B6B",relates:"#57E3C4"};
 let parentChildPhase=0; // Animation phase for parent-child category links
+let flowParticles=[]; // Particles for electricity flow animation
+
 function drawGraph(now){
  const c=gctx;if(!c)return;
  c.clearRect(0,0,graph.w,graph.h);
  
  // Update animation phase for parent-child links
  if(now % 10 === 0) parentChildPhase = now * 0.003;
+ 
+ // Spawn flow particles for parent-child edges
+ graph.edges.forEach(e=>{
+   if(e.isCategoryLink && e.isParentChild){
+     const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
+     if(a&&b && Math.random()<0.08){
+       flowParticles.push({
+         edge:e,
+         progress:0,
+         speed:0.015+Math.random()*0.01,
+         size:1.5+Math.random()*1.5,
+         brightness:0.6+Math.random()*0.4
+       });
+     }
+   }
+ });
+ 
+ // Update and draw flow particles
+ flowParticles=flowParticles.filter(p=>{
+   p.progress+=p.speed;
+   if(p.progress>=1) return false;
+   
+   const a=graph.nodes.find(n=>n.id===p.edge.a),b=graph.nodes.find(n=>n.id===p.edge.b);
+   if(!a||!b) return false;
+   
+   const x=a.x+(b.x-a.x)*p.progress;
+   const y=a.y+(b.y-a.y)*p.progress;
+   
+   c.beginPath();
+   c.arc(x,y,p.size,0,Math.PI*2);
+   c.fillStyle=`rgba(255,255,255,${p.brightness})`;
+   c.shadowColor="#FFFFFF";
+   c.shadowBlur=8;
+   c.fill();
+   c.shadowBlur=0;
+   
+   return true;
+ });
  
  graph.edges.forEach(e=>{
    const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);if(!a||!b)return;
@@ -1337,8 +1391,9 @@ function drawGraph(now){
      let icon = "📁";
      if(n.isSubcategory) icon = "📂";
      
-     // For subcategories, show only the parent category name in constellation view
-     const displayName = n.isSubcategory ? n.parentCategory : n.categoryName;
+     // For subcategories, show the full subcategory name (e.g., "Mistake > Study Mistake")
+     // For main categories, show only the category name
+     const displayName = n.categoryName;
      
      c.font=(hov?"600 12px":"600 10px")+" 'IBM Plex Mono',monospace";
      c.textAlign="center"; c.fillStyle=hov?"rgba(255,255,255,.95)":"rgba(255,255,255,.75)";
