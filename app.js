@@ -438,7 +438,7 @@ function renderMain(){
 /* ---------- graph view ---------- */
 function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
- const allCats=[...doms,...customCategories.map(c=>c.name)];
+ const allCats=[...new Set([...doms,...customCategories.map(c=>c.name)])];
  
  $("#main").innerHTML=`
   <div class="panel graphpanel rise d1" id="gwrap">
@@ -1393,7 +1393,7 @@ function getCategoryColor(name){
 // Render category list in settings panel
 function renderCategoryList(){
   const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
-  const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
+  const allCats=[...new Set([...existingDoms,...customCategories.map(c=>c.name)])];
   
   const catListEl=$('#catlist');
   if(!catListEl) return;
@@ -1427,7 +1427,7 @@ function renderCategoryList(){
 // Bind category add/edit/delete events
 function bindCategoryEvents(){
   const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
-  const allCats=[...existingDoms,...customCategories.map(c=>c.name)];
+  const allCats=[...new Set([...existingDoms,...customCategories.map(c=>c.name)])];
   
   // Add new category button
   const addBtn=$('#addcatconfirm');
