@@ -1288,22 +1288,37 @@ function stepGraph(){
  });
 }
 const EDGE_COLORS={expands:"#8FE388",contradicts:"#FF6B6B",relates:"#57E3C4"};
+let parentChildPhase=0; // Animation phase for parent-child category links
 function drawGraph(now){
  const c=gctx;if(!c)return;
  c.clearRect(0,0,graph.w,graph.h);
+ 
+ // Update animation phase for parent-child links
+ if(now % 10 === 0) parentChildPhase = now * 0.003;
+ 
  graph.edges.forEach(e=>{
    const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);if(!a||!b)return;
    // Use different color for category links
    if(e.isCategoryLink){
      c.strokeStyle=a.isCategory?a.categoryColor:(b.isCategory?b.categoryColor:"#9CA3AF");
      c.globalAlpha=.35;
-     c.setLineDash([3,3]);
+     
+     // Animated dashed line for parent-child category links
+     if(e.isParentChild){
+       c.setLineDash([6,4]);
+       c.lineDashOffset = -parentChildPhase * 50; // Animate the dash
+       c.lineWidth=2;
+     }else{
+       c.setLineDash([3,3]);
+       c.lineDashOffset=0;
+       c.lineWidth=1.4;
+     }
    }else{
      c.strokeStyle=EDGE_COLORS[e.type]||"#57E3C4";
      c.globalAlpha=.55;
      if(e.type==="contradicts"){c.setLineDash([5,4]);c.lineDashOffset=-now*.02;}else c.setLineDash([]);
+     c.lineWidth=1.4;
    }
-   c.lineWidth=1.4;
    c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.setLineDash([]);c.globalAlpha=1;
  });
  graph.nodes.forEach(n=>{
