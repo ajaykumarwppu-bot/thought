@@ -1074,6 +1074,9 @@ function renderInspector(id){
      <ul class="limlist">${n.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
    </div>
    <div class="insblock">
+     ${renderCategoryAssignmentUI(id)}
+   </div>
+   <div class="insblock">
      <div class="lbl">CONNECTIONS (${deg})</div>
      ${conns.length?conns.map(s=>{const other=s.a===id?s.b:s.a;return `<div class="connitem" data-nav="${other}"><span class="tbadge ${s.type}">${s.type}</span><span class="cn">#${numOf(other)}</span><span style="color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(titleOf(other))}</span></div>`;}).join(""):`<div class="empty" style="padding:8px 0">No accepted connections yet.</div>`}
      ${pends.map(s=>suggCard(s,"inspector")).join("")}
@@ -1803,7 +1806,10 @@ function renderCategoryAssignmentUI(noteId){
   const note=noteOf(noteId);
   if(!note) return "";
   
-  const allCats=[...new Set([...customCategories.map(c=>c.name)])];
+  // Get all categories: both from customCategories and domains already used in notes
+  const existingDoms=[...new Set(state.notes.flatMap(n=>n.domains))];
+  const allCats=[...new Set([...existingDoms,...customCategories.map(c=>c.name)])];
+  
   if(allCats.length===0) return `<div class="empty" style="padding:8px 0">No categories created yet. Add categories in Settings.</div>`;
   
   const currentDomains=note.domains||[];
@@ -1811,7 +1817,7 @@ function renderCategoryAssignmentUI(noteId){
   return `
     <div class="cat-assign-section">
       <div class="lbl"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" width="11" height="11"><path d="M2 9.5L4.5 3h7L14 9.5V13H2z"/><path d="M2 9.5h4l1 2h2l1-2h4"/></svg> LINK TO CATEGORIES</div>
-      <p class="setting-hint" style="margin-bottom:10px;font-size:11px">Link this thought to categories. AI auto-assigns based on category rules, but you have full manual control.</p>
+      <p class="setting-hint" style="margin-bottom:10px;font-size:11px">Link this thought to categories manually. Select from your created categories below.</p>
       <div class="cat-assign-grid">
         ${allCats.map(catName=>{
           const isLinked=currentDomains.includes(catName);

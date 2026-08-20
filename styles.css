@@ -324,3 +324,17 @@ body.modal-open{overflow:hidden!important;touch-action:none;position:fixed;top:0
 .cal-day.today::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;background:var(--leaf);border-radius:50%}
 .cal-day.empty{visibility:hidden}
 .cal-nav:hover{background:rgba(143,227,136,.08)!important;border-color:var(--leaf)!important}
+
+/* Category Assignment UI in Inspector */
+.cat-assign-section{margin-bottom:16px}
+.cat-assign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:12px}
+.cat-assign-item{display:flex;flex-direction:column;gap:8px;padding:12px;background:rgba(9,20,14,.5);border:1px solid var(--line);border-radius:10px;transition:.15s}
+.cat-assign-item:hover{border-color:var(--line2)}
+.cat-assign-item.linked{border-color:var(--leaf);background:rgba(143,227,136,.05)}
+.cat-assign-header{display:flex;align-items:center;gap:8px}
+.cat-assign-name{font-size:13px;color:var(--ink);flex:1}
+.cat-link-btn{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer;transition:.15s}
+.cat-link-btn:hover{border-color:var(--leaf);color:var(--leaf)}
+.cat-link-btn.linked{border-color:var(--leaf);background:rgba(143,227,136,.1);color:var(--leaf)}
+.cat-link-btn.linked:hover{background:rgba(143,227,136,.2)}
+.cat-assign-desc{font-size:11px;color:var(--dim);line-height:1.5;padding-left:20px}
