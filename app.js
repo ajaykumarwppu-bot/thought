@@ -56,6 +56,8 @@ function loadCustomCategories(){
 
 function saveCustomCategories(){
   try{localStorage.setItem(CATEGORIES_KEY,JSON.stringify(customCategories))}catch(e){}
+  // Rebuild category structures after saving
+  rebuildCategoryStructures();
 }
 
 // Rebuild category structures from customCategories array
@@ -1130,7 +1132,8 @@ function nodeDeg(id){return acceptedEdges().filter(s=>s.a===id||s.b===id).length
 function syncGraph(){
  if(!gcanvas) return;
  const ids=new Set(state.notes.map(n=>n.id));
- graph.nodes=graph.nodes.filter(n=>ids.has(n.id));
+ // Keep only note nodes that still exist, and all category nodes
+ graph.nodes=graph.nodes.filter(n=>ids.has(n.id)||n.isCategory);
  const have=new Set(graph.nodes.map(n=>n.id));
  state.notes.forEach((n,i)=>{ if(!have.has(n.id)){
    const ang=(i/state.notes.length)*Math.PI*2;
@@ -1156,6 +1159,10 @@ function syncGraph(){
      });
    }
  });
+ 
+ // Remove category nodes that no longer exist in customCategories
+ const validCatIds=new Set(customCategories.map(c=>"cat_"+c.name));
+ graph.nodes=graph.nodes.filter(n=>!n.isCategory||validCatIds.has(n.id));
  
  // Add edges between notes and their linked categories
  state.notes.forEach(note=>{
@@ -1449,28 +1456,6 @@ function bindCategoryEvents(){
         descText = descText.replace(/Rules:\s*.*/i, '').trim();
       }
       customCategories.push({name:trimmed,color:getCategoryColor(trimmed),description:descText,rules:rulesText});
-      
-      // Add to CONCEPT_DOMAIN so it appears in constellation
-      if(!CONCEPT_DOMAIN[trimmed]){
-        CONCEPT_DOMAIN[trimmed]=trimmed;
-      }
-      
-      // Add to DOMAIN_COLORS if not exists
-      if(!DOMAIN_COLORS[trimmed]){
-        DOMAIN_COLORS[trimmed]=getCategoryColor(trimmed);
-      }
-      
-      // Add to ASSOC with empty array for future connections
-      if(!ASSOC[trimmed]){
-        ASSOC[trimmed]=[];
-      }
-      
-      // Add "Other" as a fallback category (always available)
-      if(!CONCEPT_DOMAIN["Other"]){
-        CONCEPT_DOMAIN["Other"]="Other";
-        DOMAIN_COLORS["Other"]="#9CA3AF";
-        ASSOC["Other"]=[];
-      }
       
       saveCustomCategories();
       toast(`Category "${trimmed}" created`,"ok");
