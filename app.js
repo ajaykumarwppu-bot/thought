@@ -174,99 +174,19 @@ const LIN_LABEL={out:{expands:"expands",contradicts:"contradicts",relates:"relat
 
 /* ============================== AI engine (local heuristics) ============================== */
 // AI-powered concept extraction using Google Gemini
+// NOTE: This function now returns empty array - categorization is manual only
 async function extractConceptsAI(text){
-  const apiKey=settings.googleApiKey;
-  const model=settings.researchModel||'gemini-2.0-flash-exp';
-  
-  if(!apiKey){
-    // Fallback to local lexicon-based extraction
-    return extractConceptsLocal(text);
-  }
-  
-  // Build category info with descriptions and rules for the prompt
-  const categoryInfo = customCategories.map(cat => {
-    let info = `- **${cat.name}**`;
-    if(cat.description) info += `: ${cat.description}`;
-    if(cat.rules) info += ` (Rules: ${cat.rules})`;
-    return info;
-  }).join('\n');
-  
-  const prompt=`You are a concept extraction assistant that MUST follow strict categorization rules.
-Analyze the following text and identify 3-5 key concepts ONLY from these predefined categories:
-
-${categoryInfo}
-
-IMPORTANT RULES:
-1. Only use categories listed above. Do NOT invent new category names.
-2. If a concept does not clearly match ANY of the above categories based on their descriptions and rules, assign it to "Other" category.
-3. Match based on the meaning described in each category's description and rules, not just keyword matching.
-4. Return concepts with their scores (0-1) based on how well they match the category definition.
-
-Text: ${text}
-
-Return ONLY a JSON array in this exact format:
-[{"name":"Category Name","score":0.9},{"name":"Other","score":0.7}]
-
-Scores should be between 0 and 1 based on relevance. If no category matches well, use "Other".`;
-
-  try{
-    const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const body={
-      contents:[{parts:[{text:prompt}]}],
-      generationConfig:{
-        temperature:0.1,
-        maxOutputTokens:500,
-        responseMimeType:'application/json'
-      }
-    };
-    
-    const response=await fetch(endpoint,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    
-    if(!response.ok) throw new Error('AI concept extraction failed');
-    
-    const data=await response.json();
-    if(data.candidates&&data.candidates[0]?.content?.parts){
-      const responseText=data.candidates[0].content.parts.map(p=>p.text).join('');
-      const jsonMatch=responseText.match(/\[[\s\S]*\]/);
-      if(jsonMatch){
-        const concepts=JSON.parse(jsonMatch[0]);
-        // Ensure all returned concepts are either in customCategories or "Other"
-        const validConcepts = concepts.filter(c => {
-          return c.name === "Other" || customCategories.some(cat => cat.name === c.name);
-        });
-        // If no valid concepts found, default to "Other"
-        if(validConcepts.length === 0){
-          return [{name:"Other", score:0.5}];
-        }
-        return validConcepts.slice(0,5).map(c=>({name:c.name,score:Math.min(1,c.score||0.5)}));
-      }
-    }
-  }catch(e){
-    console.warn('AI concept extraction failed, using local fallback:',e.message);
-  }
-  
-  // Fallback to local extraction
-  return extractConceptsLocal(text);
+  // Return empty array - no automatic concept/category extraction
+  // User will manually assign categories via the UI
+  return [];
 }
 
 // Local lexicon-based concept extraction (fallback)
+// NOTE: This function now returns empty array - categorization is manual only
 function extractConceptsLocal(text){
- const toks=tokenize(text), out=[];
- for(const [name,words] of Object.entries(LEXICON)){
-   const hits=new Set();
-   toks.forEach(t=>words.forEach(w=>{ if(t===w||t.startsWith(w)||(w.startsWith(t)&&t.length>3)) hits.add(w); }));
-   if(hits.size) out.push({name,hits:[...hits],score:Math.min(1,hits.size/3)});
- }
- out.sort((a,b)=>b.score-a.score);
- // If no concepts matched from custom categories, default to "Other"
- if(out.length === 0 && customCategories.length > 0){
-   return [{name:"Other", score:0.5}];
- }
- return out.slice(0,5);
+ // Return empty array - no automatic concept/category extraction
+ // User will manually assign categories via the UI
+ return [];
 }
 
 // Alias for backward compatibility
@@ -384,19 +304,15 @@ function findSuggestions(note){
 function semanticSearch(q){
  const qtoks=tokenize(q); if(!qtoks.length) return null;
  const expanded=new Set(qtoks); const matchedConcepts=[];
- for(const [name,words] of Object.entries(LEXICON)){
-   if(words.some(w=>qtoks.some(t=>t===w||t.startsWith(w)||(w.startsWith(t)&&t.length>3)))){
-     matchedConcepts.push(name); words.forEach(w=>expanded.add(w));
-     (ASSOC[name]||[]).forEach(an=>{ if(an!==name) (LEXICON[an]||[]).forEach(w=>expanded.add(w)); matchedConcepts.length; });
-   }
- }
+ // LEXICON is now empty since we removed auto-categorization, so this loop won't match anything
+ // Search will rely purely on text token matching
  const results=[];
  state.notes.forEach(n=>{
    const toks=tokenize(n.original+" "+n.refined);
    const found=[...expanded].filter(w=>toks.some(t=>t===w||t.startsWith(w)));
    let score=found.length;
-   matchedConcepts.forEach(mc=>{ if(n.concepts.some(c=>c.name===mc)) score+=4; });
-   if(found.length||matchedConcepts.some(mc=>n.concepts.some(c=>c.name===mc))) results.push({note:n,score,found});
+   // No concept-based scoring since concepts are manually assigned
+   if(found.length) results.push({note:n,score,found});
  });
  results.sort((a,b)=>b.score-a.score);
  const extra=[...expanded].filter(w=>!qtoks.includes(w)).slice(0,18);
@@ -472,17 +388,17 @@ function pendingForCaptureHTML(){
  return list.map(s=>suggCard(s,"capture")).join("");
 }
 function ingestNote(source,text){
- const concepts=extractConcepts(text);
+ // No automatic concept extraction - user will manually assign categories
+ const concepts=[];
  const refined=refineText(text);
- const domains=[...new Set(concepts.slice(0,3).map(c=>CONCEPT_DOMAIN[c.name]))];
- const allTok=tokenize(text);
- const signal=concepts.reduce((a,c)=>a+c.score,0)/Math.max(1,allTok.length/40);
- const confidence=concepts.length>=3?"high":concepts.length===2?"medium":"low";
+ // Empty domains array - no auto-assignment
+ const domains=[];
+ const confidence="low";
  const first=(refined.split(/[.!?]/)[0]||"Untitled thought").trim();
  const title=first.length>52?first.slice(0,52)+"…":first;
  const note={id:"n"+state.seq,num:state.seq,source,createdAt:new Date().toISOString(),title,original:text,refined,
-   concepts:concepts.map(c=>({name:c.name,score:+c.score.toFixed(2)})),domains,
-   interpretation:buildInterpretation(concepts),confidence,limitations:buildLimitations(source,concepts,confidence),status:"active"};
+   concepts:[],domains:[],
+   interpretation:"Interpretation skipped — you can add your own notes when assigning categories manually.",confidence,limitations:["Categories not auto-assigned — please link this thought to categories manually in the inspector."],status:"active"};
  state.notes.push(note); state.seq++;
  const found=findSuggestions(note);
  found.forEach((f,i)=>{ const s={id:"s"+Date.now()+i,...f,status:"pending",createdAt:new Date().toISOString(),resolvedAt:null};
@@ -569,11 +485,11 @@ function renderCapture(){
   </div>
   <div class="panel rise d2" id="assistpanel">
     <div class="lbl"><span class="amb">${ICON.spark}</span> KNOWLEDGE ASSISTANT</div>
-    <div id="assistbody"><div class="assist-idle">Standing by.<br><br>When you process a note I will —<br>· preserve your original words <b>verbatim</b><br>· extract concepts &amp; topics<br>· refine readability into a <b>separate copy</b><br>· scan the whole knowledge base for possible connections<br><br>I only suggest. <b>You decide.</b></div></div>
+    <div id="assistbody"><div class="assist-idle">Standing by.<br><br>When you process a note I will —<br>· preserve your original words <b>verbatim</b><br>· refine readability into a <b>separate copy</b><br>· scan the whole knowledge base for possible connections<br><br>I only suggest. <b>You decide.</b><br><br><b style="color:var(--amber)">Note: Category assignment is fully manual — AI does not auto-categorize.</b></div></div>
     <div id="processsteps" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
       <div class="lbl" style="margin-bottom:10px">PROCESSING STEPS</div>
       <div class="step" id="pst0"><span class="tick"></span><div class="st">Preserving original thought<em id="pstd0"></em></div></div>
-      <div class="step" id="pst1"><span class="tick"></span><div class="st">Extracting concepts<em id="pstd1"></em></div></div>
+      <div class="step" id="pst1"><span class="tick"></span><div class="st">Refining text clarity<em id="pstd1"></em></div></div>
       <div class="step" id="pst2"><span class="tick"></span><div class="st">Building structured output<em id="pstd2"></em></div></div>
       <div class="step" id="pst3"><span class="tick"></span><div class="st">Scanning knowledge base for relations<em id="pstd3"></em></div></div>
     </div>
@@ -666,8 +582,9 @@ async function processNote(){
  fin(0,`locked verbatim as Note #${state.seq} — never editable, never deletable`);
  
  act(1); await sleep(700);
- const concepts=await extractConceptsAI(text);
- fin(1,concepts.length?concepts.map(c=>esc(c.name)).join(" · "):"no strong concept signals");
+ // No automatic concept extraction - user will manually assign categories
+ const concepts=[];
+ fin(1,"skipped — you will manually assign categories");
  
  act(2);
  let refined=text;
@@ -692,15 +609,17 @@ async function processNote(){
  
  // Step 4: Find suggestions
  act(3); await sleep(900);
- const domains=[...new Set(concepts.slice(0,3).map(c=>CONCEPT_DOMAIN[c.name]))];
- const interpretation=await buildInterpretationAI(text,concepts);
- const confidence=concepts.length>=3?"high":concepts.length===2?"medium":"low";
- const limitations=buildLimitations(capTab,concepts,confidence);
+ // Empty domains array - no auto-assignment
+ const domains=[];
+ // Build interpretation without concepts
+ const interpretation="Interpretation skipped — you can add your own notes when assigning categories manually.";
+ const confidence="low";
+ const limitations=["Categories not auto-assigned — please link this thought to categories manually in the inspector."];
  const first=(refined.split(/[.!?]/)[0]||"Untitled thought").trim();
  const title=first.length>52?first.slice(0,52)+"…":first;
  
  const note={id:"n"+state.seq,num:state.seq,source:capTab,createdAt:new Date().toISOString(),title,original:originalText,refined,
-   concepts:concepts.map(c=>({name:c.name,score:+c.score.toFixed(2)})),domains,
+   concepts:[],domains:[],
    interpretation,confidence,limitations,status:"active"};
  state.notes.push(note); state.seq++;
  
@@ -724,12 +643,9 @@ async function processNote(){
     <div class="panel rise d1" style="margin-top:16px"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
       <div class="disclaim">${ICON.spark} ${settings.googleApiKey?'AI-generated':'Locally generated'} refinement. May contain interpretation errors. Your original above is the source of truth.</div>
       <div class="notetext">${esc(note.refined)}</div></div>
-    <div class="panel rise d2" style="margin-top:16px"><div class="lbl">AI TRANSPARENCY</div>
-      <div class="interp">${esc(note.interpretation)}</div>
-      ${conceptChips(note.concepts)}
-      <div style="margin:12px 0">${confBlock(note.confidence)}</div>
-      <div class="lbl">POSSIBLE LIMITATIONS</div>
-      <ul class="limlist">${note.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
+    <div class="panel rise d2" style="margin-top:16px"><div class="lbl">CATEGORY ASSIGNMENT</div>
+      <div class="interp" style="color:var(--amber)">Categories were NOT auto-assigned. Please link this thought to categories manually using the inspector panel.</div>
+      <button class="btn btn-primary" id="opencatassign" style="margin-top:10px">${ICON.graph} Assign Categories Now</button>
     </div>
     ${suggHTML}
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
@@ -738,6 +654,7 @@ async function processNote(){
     </div>`;
         const oc=$("#openconst"); if(oc) oc.onclick=()=>{selId=note.id;setView("graph");};
    const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
+   const oca=$("#opencatassign"); if(oca) oca.onclick=()=>renderInspector(note.id);
  }
  
  if($("#ta"))$("#ta").value="";
