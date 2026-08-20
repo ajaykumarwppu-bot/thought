@@ -1337,9 +1337,12 @@ function drawGraph(now){
      let icon = "📁";
      if(n.isSubcategory) icon = "📂";
      
+     // For subcategories, show only the parent category name in constellation view
+     const displayName = n.isSubcategory ? n.parentCategory : n.categoryName;
+     
      c.font=(hov?"600 12px":"600 10px")+" 'IBM Plex Mono',monospace";
      c.textAlign="center"; c.fillStyle=hov?"rgba(255,255,255,.95)":"rgba(255,255,255,.75)";
-     c.fillText(icon+" "+n.categoryName,n.x,n.y+r+15);
+     c.fillText(icon+" "+displayName,n.x,n.y+r+15);
      return;
    }
    // Handle note nodes
