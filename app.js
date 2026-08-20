@@ -444,6 +444,10 @@ function renderGraph(){
     <div class="glegend">${allCats.map(d=>`<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`).join("")}</div>
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
+  
+ // Initialize graph canvas and sync nodes
+ initGraphCanvas();
+ syncGraph();
 }
 
 /* ---------- capture view ---------- */
@@ -1108,7 +1112,17 @@ function initGraphCanvas(){
      d.n.x=p.x;d.n.y=p.y;d.n.vx=0;d.n.vy=0;}
    graph.hover=hitNode(p); gcanvas.style.cursor=graph.hover?"pointer":(graph.drag?"grabbing":"grab");};
  gcanvas.onpointerup=e=>{const d=graph.drag;graph.drag=null;gcanvas.classList.remove("drag");
-   if(d&&!d.moved){selId=d.n.id;renderInspector(selId);$("#shell").classList.add("insp");}};
+   if(d&&!d.moved){
+     // Check if clicked on a category node
+     if(d.n.isCategory){
+       // Open settings panel to categories tab
+       switchSettingsTab('categories');
+       openSettingsPanel();
+     }else{
+       selId=d.n.id;renderInspector(selId);$("#shell").classList.add("insp");
+     }
+   }
+ };
 }
 function gpos(e){const r=gcanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function hitNode(p){for(let i=graph.nodes.length-1;i>=0;i--){const n=graph.nodes[i];if(Math.hypot(p.x-n.x,p.y-n.y)<(n.r||12)+7)return n;}return null;}
@@ -1124,6 +1138,40 @@ function syncGraph(){
  }});
  graph.nodes.forEach(n=>{n.r=Math.min(17,9+nodeDeg(n.id)*2.4);});
  graph.edges=acceptedEdges().map(s=>({a:s.a,b:s.b,type:s.type}));
+ 
+ // Add category nodes for constellation display
+ customCategories.forEach(cat=>{
+   const catId="cat_"+cat.name;
+   if(!graph.nodes.find(n=>n.id===catId)){
+     // Add category node at a random position
+     graph.nodes.push({
+       id:catId,
+       x:Math.random()*graph.w,
+       y:Math.random()*graph.h,
+       vx:0,vy:0,
+       born:performance.now(),
+       isCategory:true,
+       categoryName:cat.name,
+       categoryColor:cat.color||getCategoryColor(cat.name)
+     });
+   }
+ });
+ 
+ // Add edges between notes and their linked categories
+ state.notes.forEach(note=>{
+   if(note.domains&&note.domains.length>0){
+     note.domains.forEach(domainName=>{
+       const catId="cat_"+domainName;
+       // Check if edge already exists
+       const edgeExists=graph.edges.some(e=>
+         (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
+       );
+       if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
+         graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true});
+       }
+     });
+   }
+ });
 }
 function stepGraph(){
  const ns=graph.nodes,W=graph.w,H=graph.h;
@@ -1147,11 +1195,36 @@ function drawGraph(now){
  c.clearRect(0,0,graph.w,graph.h);
  graph.edges.forEach(e=>{
    const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);if(!a||!b)return;
-   c.strokeStyle=EDGE_COLORS[e.type]||"#57E3C4"; c.globalAlpha=.55; c.lineWidth=1.4;
-   if(e.type==="contradicts"){c.setLineDash([5,4]);c.lineDashOffset=-now*.02;}else c.setLineDash([]);
+   // Use different color for category links
+   if(e.isCategoryLink){
+     c.strokeStyle=a.isCategory?a.categoryColor:(b.isCategory?b.categoryColor:"#9CA3AF");
+     c.globalAlpha=.35;
+     c.setLineDash([3,3]);
+   }else{
+     c.strokeStyle=EDGE_COLORS[e.type]||"#57E3C4";
+     c.globalAlpha=.55;
+     if(e.type==="contradicts"){c.setLineDash([5,4]);c.lineDashOffset=-now*.02;}else c.setLineDash([]);
+   }
+   c.lineWidth=1.4;
    c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.setLineDash([]);c.globalAlpha=1;
  });
  graph.nodes.forEach(n=>{
+   // Handle category nodes
+   if(n.isCategory){
+     const col=n.categoryColor||"#9CA3AF";
+     const age=(now-n.born)/500, sc=Math.min(1,age);
+     const r=(n.r||20)*(0.4+0.6*sc);
+     if(n.id===selId){c.beginPath();c.arc(n.x,n.y,r+7,0,7);c.strokeStyle="#8FE388";c.lineWidth=1.6;c.stroke();}
+     c.shadowColor=col;c.shadowBlur=18;
+     c.beginPath();c.arc(n.x,n.y,r,0,7);c.fillStyle=col;c.fill();c.shadowBlur=0;
+     c.beginPath();c.arc(n.x,n.y,r,0,7);c.strokeStyle="rgba(255,255,255,.28)";c.lineWidth=1;c.stroke();
+     const hov=graph.hover===n;
+     c.font=(hov?"600 12px":"600 10px")+" 'IBM Plex Mono',monospace";
+     c.textAlign="center"; c.fillStyle=hov?"rgba(255,255,255,.95)":"rgba(255,255,255,.75)";
+     c.fillText("📁 "+n.categoryName,n.x,n.y+r+15);
+     return;
+   }
+   // Handle note nodes
    const note=noteOf(n.id); if(!note)return;
    const col=DOMAIN_COLORS[note.domains[0]]||"#EAF0D0";
    const age=(now-n.born)/500, sc=Math.min(1,age);
