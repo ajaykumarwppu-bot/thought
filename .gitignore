@@ -1,18 +1,22 @@
+# Examples 1:
+
+(empty — output nothing)
+
+# Example 2 (Project with artifacts):
+
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
-*.exe
-*.dll
-*.so
-*.class
-*.out
+dist/
+build/
+target/
 
 # Dependencies
-node_modules/
-venv/
 .venv/
+venv/
+node_modules/
 .env
 .env.local
 .env.*
@@ -21,27 +25,10 @@ venv/
 *.log
 *.tmp
 *.swp
-*.swo
 
 # Editors
 .vscode/
 .idea/
 
-# System files
-.DS_Store
-Thumbs.db
-
-# Coverage and testing
-.coverage
-coverage/
-htmlcov/
-
-# Build directories
-dist/
-build/
-target/
-.gradle/
-
-# Cache directories
-.mypy_cache/
-.pytest_cache/
+# Original rules preserved
+*.log
