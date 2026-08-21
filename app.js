@@ -362,7 +362,22 @@ function toast(msg,kind){
 }
 
 /* ============================== components ============================== */
-function domainChip(d){ const c=DOMAIN_COLORS[d]||"#EAF0D0"; return `<span class="chip" style="color:${c};border-color:${c}55;background:${c}14">${esc(d)}</span>`; }
+function domainChip(d){ 
+  // Safe domain color lookup with validation for subcategories
+  let c="#EAF0D0"; // default fallback
+  if(typeof d === 'string'){
+    if(DOMAIN_COLORS[d]){
+      c = DOMAIN_COLORS[d];
+    } else if(d.includes(' > ')){
+      // For subcategories, try to get parent category color
+      const parentName = d.split(' > ')[0].trim();
+      if(DOMAIN_COLORS[parentName]){
+        c = DOMAIN_COLORS[parentName];
+      }
+    }
+  }
+  return `<span class="chip" style="color:${c};border-color:${c}55;background:${c}14">${esc(d)}</span>`; 
+}
 function conceptChips(concepts){ return `<div class="chips">${concepts.map(c=>`<span class="chip" style="color:#A9D8B0;border-color:rgba(143,227,136,.35);background:rgba(143,227,136,.07)">${esc(c.name)}</span>`).join("")}</div>`; }
 function confBlock(conf){ const n=conf==="high"?3:conf==="medium"?2:1;
  return `<span class="conf-${conf}"><span class="confmeter">${[1,2,3].map(i=>`<i class="${i<=n?"f":""}"></i>`).join("")}</span><span class="conftag">${conf} confidence</span></span>`; }
@@ -483,7 +498,9 @@ function renderGraph(){
       if(d.includes(' > ')){
         return ''; // Skip subcategories in legend
       }
-      return `<span class="lchip"><i style="background:${DOMAIN_COLORS[d]||getCategoryColor(d)}"></i>${esc(d)}</span>`;
+      // Safe color lookup for main categories
+      const catColor = DOMAIN_COLORS[d] || getCategoryColor(d);
+      return `<span class="lchip"><i style="background:${catColor}"></i>${esc(d)}</span>`;
     }).filter(s=>s).join("")}</div>
     <div class="ghint">drag to arrange · click a node to inspect · amber halo = pending suggestion</div>
   </div>`;
@@ -794,7 +811,21 @@ function renderTimeline(){
          <div style="display:flex;gap:16px;align-items:flex-start">
            <div class="tnum">${noteNum}</div>
            <div style="flex:1;min-width:0">
-             <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${n.domains.map(d=>`<span class="chip" style="color:${DOMAIN_COLORS[d]};border-color:${DOMAIN_COLORS[d]}55;background:${DOMAIN_COLORS[d]}12">${esc(d)}</span>`).join("")}</div>
+             <div class="tmeta"><span>${n.source==="voice"?"🎙 VOICE":"✎ TEXT"}</span><span>·</span><span>${fmtDate(n.createdAt)}</span>${(n.domains||[]).map(d=>{
+               // Safe domain color lookup for timeline view
+               let dc="#EAF0D0";
+               if(typeof d === 'string'){
+                 if(DOMAIN_COLORS[d]){
+                   dc = DOMAIN_COLORS[d];
+                 } else if(d.includes(' > ')){
+                   const parentName = d.split(' > ')[0].trim();
+                   if(DOMAIN_COLORS[parentName]){
+                     dc = DOMAIN_COLORS[parentName];
+                   }
+                 }
+               }
+               return `<span class="chip" style="color:${dc};border-color:${dc}55;background:${dc}12">${esc(d)}</span>`;
+             }).join("")}</div>
              <h3>${esc(n.title)}</h3>
              <p>${esc(n.refined.replace(/\n+/g," ").slice(0,170))}…</p>
              ${lineageBadges(n.id)}
@@ -1246,36 +1277,53 @@ function syncGraph(){
  
  // Add edges between notes and their linked categories (including subcategories)
  state.notes.forEach(note=>{
-   if(note.domains&&note.domains.length>0){
-     note.domains.forEach(domainName=>{
-       // Check if this is a subcategory (format: "Parent > Subcategory")
-       let catId;
-       if(domainName.includes(' > ')){
-         // This is a subcategory - find the parent category and subcategory index
-         const parts = domainName.split(' > ');
-         const parentName = parts[0];
-         const subcatName = parts.slice(1).join(' > ');
-         const parentCat = customCategories.find(c=>c.name===parentName);
-         if(parentCat&&parentCat.subcategories){
-           const subcatIdx = parentCat.subcategories.findIndex(s=>s.name===subcatName);
-           if(subcatIdx>=0){
-             catId=`cat_${parentName}_sub_${subcatIdx}`;
-           }
+   // Safety check: ensure note.domains exists and is an array
+   if(!note.domains || !Array.isArray(note.domains) || note.domains.length===0){
+     return; // Skip notes without domains
+   }
+   
+   note.domains.forEach(domainName=>{
+     // Validate domainName is a string
+     if(typeof domainName !== 'string' || domainName.trim()===''){
+       return; // Skip invalid domain names
+     }
+     
+     // Check if this is a subcategory (format: "Parent > Subcategory")
+     let catId=null;
+     if(domainName.includes(' > ')){
+       // This is a subcategory - find the parent category and subcategory index
+       const parts = domainName.split(' > ');
+       const parentName = parts[0].trim();
+       const subcatName = parts.slice(1).join(' > ').trim();
+       const parentCat = customCategories.find(c=>c.name===parentName);
+       if(parentCat&&parentCat.subcategories&&parentCat.subcategories.length>0){
+         const subcatIdx = parentCat.subcategories.findIndex(s=>s.name===subcatName);
+         if(subcatIdx>=0){
+           catId=`cat_${parentName}_sub_${subcatIdx}`;
          }
-       } else {
-         // This is a main category
+       }
+     } else {
+       // This is a main category
+       const validCat = customCategories.find(c=>c.name===domainName);
+       if(validCat){
          catId="cat_"+domainName;
        }
-       
-       // Check if edge already exists
-       const edgeExists=graph.edges.some(e=>
-         (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
-       );
-       if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
-         graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true});
-       }
-     });
-   }
+     }
+     
+     // Skip if category ID could not be determined (category doesn't exist)
+     if(!catId){
+       console.warn(`Category "${domainName}" referenced by note #${note.num} does not exist in customCategories`);
+       return;
+     }
+     
+     // Check if edge already exists
+     const edgeExists=graph.edges.some(e=>
+       (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
+     );
+     if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
+       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true});
+     }
+   });
  });
 }
 function stepGraph(){
@@ -1402,7 +1450,20 @@ function drawGraph(now){
    }
    // Handle note nodes
    const note=noteOf(n.id); if(!note)return;
-   const col=DOMAIN_COLORS[note.domains[0]]||"#EAF0D0";
+   // Safe domain color lookup with validation
+   let col="#EAF0D0"; // default fallback color
+   if(note.domains && Array.isArray(note.domains) && note.domains.length > 0){
+     const firstDomain = note.domains[0];
+     if(typeof firstDomain === 'string' && DOMAIN_COLORS[firstDomain]){
+       col = DOMAIN_COLORS[firstDomain];
+     } else if(typeof firstDomain === 'string' && firstDomain.includes(' > ')){
+       // For subcategories, try to get parent category color
+       const parentName = firstDomain.split(' > ')[0].trim();
+       if(DOMAIN_COLORS[parentName]){
+         col = DOMAIN_COLORS[parentName];
+       }
+     }
+   }
    const age=(now-n.born)/500, sc=Math.min(1,age);
    const r=n.r*(.4+.6*sc);
    if(noteHasPending(n.id)){
@@ -1555,7 +1616,12 @@ loadSettings();
 /* ============================== category management ============================== */
 function getCategoryColor(name){
   const colors=['#C8A2FF','#8FE388','#57E3C4','#FFD166','#FF9E64','#7CC7FF','#FF9AC2','#EAF0D0','#FF6B6B','#D4A5FF'];
-  const idx=customCategories.findIndex(c=>c.name===name);
+  // Handle subcategory names by extracting parent category name
+  let lookupName = name;
+  if(name && typeof name === 'string' && name.includes(' > ')){
+    lookupName = name.split(' > ')[0].trim();
+  }
+  const idx=customCategories.findIndex(c=>c.name===lookupName);
   return colors[idx%colors.length];
 }
 
@@ -1569,7 +1635,13 @@ function renderCategoryList(){
   
   catListEl.innerHTML=allCats.map(catName=>{
     const isCustom=customCategories.some(c=>c.name===catName);
-    const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+    // Safe color lookup for category list
+    let catColor="#EAF0D0";
+    if(DOMAIN_COLORS[catName]){
+      catColor = DOMAIN_COLORS[catName];
+    } else {
+      catColor = getCategoryColor(catName);
+    }
     const catData=customCategories.find(c=>c.name===catName);
     const hasDesc=catData&&(catData.description||catData.rules);
     const hasSubcats=catData&&catData.subcategories&&catData.subcategories.length>0;
@@ -2117,7 +2189,13 @@ function renderCategoryAssignmentUI(noteId){
   let categoriesHtml = '';
   allCats.forEach(catName => {
     const catData=customCategories.find(c=>c.name===catName);
-    const catColor=DOMAIN_COLORS[catName]||getCategoryColor(catName);
+    // Safe color lookup for category assignment panel
+    let catColor="#EAF0D0";
+    if(DOMAIN_COLORS[catName]){
+      catColor = DOMAIN_COLORS[catName];
+    } else {
+      catColor = getCategoryColor(catName);
+    }
     const hasDesc=catData&&(catData.description||catData.rules);
     const isLinked=currentDomains.includes(catName);
     
