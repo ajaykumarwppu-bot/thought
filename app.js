@@ -1335,10 +1335,10 @@ function stepGraph(){
  }
  // Spring forces for edges with improved damping
  graph.edges.forEach(e=>{const a=ns.find(n=>n.id===e.a),b=ns.find(n=>n.id===e.b);if(!a||!b)return;
-   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;const restLen=e.isCategoryLink?100:140;
-   const f=(d-restLen)*0.02;dx/=d;dy/=d;
+   let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;const restLen=e.isCategoryLink?80:120;
+   const f=(d-restLen)*0.035;dx/=d;dy/=d;
    // Stronger spring force for category links
-   const strength=e.isCategoryLink?0.08:0.05;
+   const strength=e.isCategoryLink?0.12:0.06;
    a.vx+=dx*f*strength;a.vy+=dy*f*strength;b.vx-=dx*f*strength;b.vy-=dy*f*strength;});
  ns.forEach(n=>{
    // Center gravity and velocity damping (Obsidian-like behavior)
@@ -1364,13 +1364,13 @@ function drawGraph(now){
  graph.edges.forEach(e=>{
    if(e.isCategoryLink && e.isParentChild){
      const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
-     if(a&&b && Math.random()<0.08){
+     if(a&&b && Math.random()<0.15){
        flowParticles.push({
          edge:e,
          progress:0,
-         speed:0.015+Math.random()*0.01,
-         size:1.5+Math.random()*1.5,
-         brightness:0.6+Math.random()*0.4
+         speed:0.025+Math.random()*0.015,
+         size:2+Math.random()*2,
+         brightness:0.75+Math.random()*0.25
        });
      }
    }
@@ -1391,7 +1391,7 @@ function drawGraph(now){
    c.arc(x,y,p.size,0,Math.PI*2);
    c.fillStyle=`rgba(255,255,255,${p.brightness})`;
    c.shadowColor="#FFFFFF";
-   c.shadowBlur=8;
+   c.shadowBlur=12;
    c.fill();
    c.shadowBlur=0;
    
@@ -1400,26 +1400,26 @@ function drawGraph(now){
  
  graph.edges.forEach(e=>{
    const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);if(!a||!b)return;
-   // Use different color for category links
+   // Use different color for category links - STRONGER and MORE VISIBLE
    if(e.isCategoryLink){
      c.strokeStyle=a.isCategory?a.categoryColor:(b.isCategory?b.categoryColor:"#9CA3AF");
-     c.globalAlpha=.35;
+     c.globalAlpha=.65;
      
-     // Animated dashed line for parent-child category links
+     // Animated dashed line for parent-child category links - STRONGER and MORE VISIBLE
      if(e.isParentChild){
-       c.setLineDash([6,4]);
+       c.setLineDash([8,3]);
        c.lineDashOffset = -parentChildPhase * 50; // Animate the dash
-       c.lineWidth=2;
+       c.lineWidth=3;
      }else{
-       c.setLineDash([3,3]);
+       c.setLineDash([4,2]);
        c.lineDashOffset=0;
-       c.lineWidth=1.4;
+       c.lineWidth=2.2;
      }
    }else{
      c.strokeStyle=EDGE_COLORS[e.type]||"#57E3C4";
-     c.globalAlpha=.55;
+     c.globalAlpha=.85;
      if(e.type==="contradicts"){c.setLineDash([5,4]);c.lineDashOffset=-now*.02;}else c.setLineDash([]);
-     c.lineWidth=1.4;
+     c.lineWidth=2.2;
    }
    c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.setLineDash([]);c.globalAlpha=1;
  });
