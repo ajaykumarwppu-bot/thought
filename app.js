@@ -1212,7 +1212,25 @@ function syncGraph(){
    graph.nodes.push({id:n.id,x:(graph.w||600)/2+Math.cos(ang)*150+(Math.random()*50-25),y:(graph.h||420)/2+Math.sin(ang)*115+(Math.random()*50-25),vx:0,vy:0,born:performance.now()});
  }});
  graph.nodes.forEach(n=>{n.r=Math.min(17,9+nodeDeg(n.id)*2.4);});
+ // Preserve existing category edges before resetting edges array
+ const existingCatEdges = graph.edges.filter(e => e.isCategoryLink);
  graph.edges=acceptedEdges().map(s=>({a:s.a,b:s.b,type:s.type}));
+ 
+ // Add back preserved category edges (parent-child and note-category links)
+ existingCatEdges.forEach(e => {
+   // Only add if both nodes still exist
+   const nodeA = graph.nodes.find(n => n.id === e.a);
+   const nodeB = graph.nodes.find(n => n.id === e.b);
+   if(nodeA && nodeB) {
+     const edgeExists = graph.edges.some(existing => 
+       (existing.a === e.a && existing.b === e.b) || 
+       (existing.a === e.b && existing.b === e.a)
+     );
+     if(!edgeExists) {
+       graph.edges.push(e);
+     }
+   }
+ });
  
  // Add category nodes for constellation display (including subcategories)
  customCategories.forEach(cat=>{
