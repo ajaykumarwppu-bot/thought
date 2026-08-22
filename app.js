@@ -1173,6 +1173,7 @@ function renderInspector(id){
 
 /* ============================== graph engine ============================== */
 let gcanvas=null,gctx=null,graph={nodes:[],edges:[],hover:null,drag:null,w:0,h:0};
+let categoryNodePositions={}; // Store positions of category nodes to preserve them across section switches
 function initGraphCanvas(){
  gcanvas=$("#gcanvas"); gctx=gcanvas.getContext("2d");
  const wrap=$("#gwrap");
@@ -1237,10 +1238,12 @@ function syncGraph(){
    // Add main category node
    const catId="cat_"+cat.name;
    if(!graph.nodes.find(n=>n.id===catId)){
+     // Restore position if available, otherwise use random position
+     const savedPos = categoryNodePositions[catId];
      graph.nodes.push({
        id:catId,
-       x:Math.random()*graph.w,
-       y:Math.random()*graph.h,
+       x:savedPos?savedPos.x:(Math.random()*graph.w),
+       y:savedPos?savedPos.y:(Math.random()*graph.h),
        vx:0,vy:0,
        born:performance.now(),
        isCategory:true,
@@ -1255,10 +1258,12 @@ function syncGraph(){
      cat.subcategories.forEach((subcat, idx)=>{
        const subcatId=`cat_${cat.name}_sub_${idx}`;
        if(!graph.nodes.find(n=>n.id===subcatId)){
+         // Restore position if available, otherwise use random position
+         const savedPos = categoryNodePositions[subcatId];
          graph.nodes.push({
            id:subcatId,
-           x:Math.random()*graph.w,
-           y:Math.random()*graph.h,
+           x:savedPos?savedPos.x:(Math.random()*graph.w),
+           y:savedPos?savedPos.y:(Math.random()*graph.h),
            vx:0,vy:0,
            born:performance.now(),
            isCategory:true,
@@ -1292,6 +1297,11 @@ function syncGraph(){
    }
  });
  graph.nodes=graph.nodes.filter(n=>!n.isCategory||validCatIds.has(n.id));
+ 
+ // Save positions of category nodes for persistence across section switches
+ graph.nodes.filter(n=>n.isCategory).forEach(n=>{
+   categoryNodePositions[n.id] = {x:n.x, y:n.y};
+ });
  
  // Add edges between notes and their linked categories (including subcategories)
  state.notes.forEach(note=>{
@@ -1370,31 +1380,36 @@ function stepGraph(){
 const EDGE_COLORS={expands:"#8FE388",contradicts:"#FF6B6B",relates:"#57E3C4"};
 let parentChildPhase=0; // Animation phase for parent-child category links
 let flowParticles=[]; // Particles for electricity flow animation
+let lastParticleTime=0; // Track last particle spawn time for smooth animation
 
 function drawGraph(now){
  const c=gctx;if(!c)return;
  c.clearRect(0,0,graph.w,graph.h);
  
  // Update animation phase for parent-child links
- if(now % 10 === 0) parentChildPhase = now * 0.003;
+ parentChildPhase = now * 0.002; // Slower, smoother animation
  
- // Spawn flow particles for parent-child edges
- graph.edges.forEach(e=>{
-   if(e.isCategoryLink && e.isParentChild){
-     const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
-     if(a&&b && Math.random()<0.15){
-       flowParticles.push({
-         edge:e,
-         progress:0,
-         speed:0.025+Math.random()*0.015,
-         size:2+Math.random()*2,
-         brightness:0.75+Math.random()*0.25
-       });
+ // Spawn flow particles for parent-child edges - ONE at a time, smooth and slow
+ if(now - lastParticleTime > 800){ // Spawn one particle every 800ms
+   graph.edges.forEach(e=>{
+     if(e.isCategoryLink && e.isParentChild){
+       const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
+       if(a&&b){
+         flowParticles.push({
+           edge:e,
+           progress:0,
+           speed:0.015, // Slower speed for smoother movement
+           size:3, // Consistent size
+           brightness:1
+         });
+         lastParticleTime = now;
+         return; // Only spawn one particle per interval
+       }
      }
-   }
- });
+   });
+ }
  
- // Update and draw flow particles
+ // Update and draw flow particles - smoother movement with easing
  flowParticles=flowParticles.filter(p=>{
    p.progress+=p.speed;
    if(p.progress>=1) return false;
@@ -1402,14 +1417,19 @@ function drawGraph(now){
    const a=graph.nodes.find(n=>n.id===p.edge.a),b=graph.nodes.find(n=>n.id===p.edge.b);
    if(!a||!b) return false;
    
-   const x=a.x+(b.x-a.x)*p.progress;
-   const y=a.y+(b.y-a.y)*p.progress;
+   // Smooth easing for particle movement
+   const easedProgress = p.progress < 0.5 
+     ? 2 * p.progress * p.progress 
+     : 1 - Math.pow(-2 * p.progress + 2, 2) / 2;
+   
+   const x=a.x+(b.x-a.x)*easedProgress;
+   const y=a.y+(b.y-a.y)*easedProgress;
    
    c.beginPath();
    c.arc(x,y,p.size,0,Math.PI*2);
    c.fillStyle=`rgba(255,255,255,${p.brightness})`;
    c.shadowColor="#FFFFFF";
-   c.shadowBlur=12;
+   c.shadowBlur=15;
    c.fill();
    c.shadowBlur=0;
    
