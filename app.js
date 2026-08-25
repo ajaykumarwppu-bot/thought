@@ -1279,7 +1279,7 @@ function syncGraph(){
            (e.a===catId&&e.b===subcatId)||(e.a===subcatId&&e.b===catId)
          );
          if(!edgeExists){
-           graph.edges.push({a:catId,b:subcatId,type:"relates",isCategoryLink:true,isParentChild:true});
+           graph.edges.push({a:catId,b:subcatId,type:"relates",isCategoryLink:true,isParentChild:true,direction:"parentToSub"});
          }
        }
      });
@@ -1349,7 +1349,7 @@ function syncGraph(){
        (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
      );
      if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
-       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true});
+       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true,direction:"thoughtToCategory"});
      }
    });
  });
@@ -1380,7 +1380,7 @@ function stepGraph(){
 const EDGE_COLORS={expands:"#8FE388",contradicts:"#FF6B6B",relates:"#57E3C4"};
 let parentChildPhase=0; // Animation phase for ALL category links
 let flowParticles=[]; // Particles for electricity flow animation
-let lastParticleTime=0; // Track last particle spawn time for smooth animation
+let activeEdgeParticles={}; // Track which edges have active particles (for single particle per edge)
 
 function drawGraph(now){
  const c=gctx;if(!c)return;
@@ -1389,31 +1389,64 @@ function drawGraph(now){
  // Update animation phase for parent-child links
  parentChildPhase = now * 0.002; // Slower, smoother animation
  
- // Spawn flow particles for ALL category edges - MULTIPLE at a time, smooth and slow
- if(now - lastParticleTime > 200){ // Spawn particles every 200ms for multiple simultaneous flows
-   graph.edges.forEach(e=>{
-     if(e.isCategoryLink){
+ // Spawn flow particles for ALL category edges - SINGLE particle per edge at a time
+ graph.edges.forEach(e=>{
+   if(e.isCategoryLink){
+     const edgeKey = `${e.a}-${e.b}`;
+     // Only spawn if no active particle on this edge
+     if(!activeEdgeParticles[edgeKey]){
        const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
        if(a&&b){
+         // Determine direction based on edge direction property or node types
+         let fromNode, toNode;
+         
+         // Use explicit direction if set on edge
+         if(e.direction === "parentToSub"){
+           // Parent category to subcategory
+           fromNode = a; toNode = b;
+         } else if(e.direction === "thoughtToCategory"){
+           // Thought/note to category (animate from thought to category)
+           fromNode = a; toNode = b;
+         } else if(a.isCategory && !b.isCategory){
+           // Category to thought/note
+           fromNode = a; toNode = b;
+         } else if(a.isCategory && b.isCategory && a.parentCategory === b.parentCategory){
+           // Parent category to subcategory (check hierarchy)
+           fromNode = a; toNode = b;
+         } else if(!a.isCategory && b.isCategory){
+           // Thought to category (reverse)
+           fromNode = b; toNode = a;
+         } else {
+           // Default: a to b
+           fromNode = a; toNode = b;
+         }
+         
          flowParticles.push({
            edge:e,
            progress:0,
-           speed:0.015, // Slower speed for smoother movement
+           speed:0.008, // Slower speed for smoother movement
            size:3, // Consistent size
-           brightness:1
+           brightness:1,
+           fromNode:fromNode.id,
+           toNode:toNode.id,
+           edgeKey:edgeKey
          });
+         activeEdgeParticles[edgeKey] = true;
        }
      }
-   });
-   lastParticleTime = now;
- }
+   }
+ });
  
  // Update and draw flow particles - smoother movement with easing
  flowParticles=flowParticles.filter(p=>{
    p.progress+=p.speed;
-   if(p.progress>=1) return false;
+   if(p.progress>=1){
+     // Particle reached end, remove from active edges
+     delete activeEdgeParticles[p.edgeKey];
+     return false;
+   }
    
-   const a=graph.nodes.find(n=>n.id===p.edge.a),b=graph.nodes.find(n=>n.id===p.edge.b);
+   const a=graph.nodes.find(n=>n.id===p.fromNode),b=graph.nodes.find(n=>n.id===p.toNode);
    if(!a||!b) return false;
    
    // Smooth easing for particle movement
