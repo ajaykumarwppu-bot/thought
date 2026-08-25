@@ -1378,7 +1378,7 @@ function stepGraph(){
  });
 }
 const EDGE_COLORS={expands:"#8FE388",contradicts:"#FF6B6B",relates:"#57E3C4"};
-let parentChildPhase=0; // Animation phase for parent-child category links
+let parentChildPhase=0; // Animation phase for ALL category links
 let flowParticles=[]; // Particles for electricity flow animation
 let lastParticleTime=0; // Track last particle spawn time for smooth animation
 
@@ -1389,10 +1389,10 @@ function drawGraph(now){
  // Update animation phase for parent-child links
  parentChildPhase = now * 0.002; // Slower, smoother animation
  
- // Spawn flow particles for parent-child edges - ONE at a time, smooth and slow
- if(now - lastParticleTime > 800){ // Spawn one particle every 800ms
+ // Spawn flow particles for ALL category edges - MULTIPLE at a time, smooth and slow
+ if(now - lastParticleTime > 200){ // Spawn particles every 200ms for multiple simultaneous flows
    graph.edges.forEach(e=>{
-     if(e.isCategoryLink && e.isParentChild){
+     if(e.isCategoryLink){
        const a=graph.nodes.find(n=>n.id===e.a),b=graph.nodes.find(n=>n.id===e.b);
        if(a&&b){
          flowParticles.push({
@@ -1402,11 +1402,10 @@ function drawGraph(now){
            size:3, // Consistent size
            brightness:1
          });
-         lastParticleTime = now;
-         return; // Only spawn one particle per interval
        }
      }
    });
+   lastParticleTime = now;
  }
  
  // Update and draw flow particles - smoother movement with easing
@@ -1443,16 +1442,10 @@ function drawGraph(now){
      c.strokeStyle=a.isCategory?a.categoryColor:(b.isCategory?b.categoryColor:"#9CA3AF");
      c.globalAlpha=.65;
      
-     // Animated dashed line for parent-child category links - STRONGER and MORE VISIBLE
-     if(e.isParentChild){
-       c.setLineDash([8,3]);
-       c.lineDashOffset = -parentChildPhase * 50; // Animate the dash
-       c.lineWidth=3;
-     }else{
-       c.setLineDash([4,2]);
-       c.lineDashOffset=0;
-       c.lineWidth=2.2;
-     }
+     // Animated dashed line for ALL category links - STRONGER and MORE VISIBLE
+     c.setLineDash([8,3]);
+     c.lineDashOffset = -parentChildPhase * 50; // Animate the dash
+     c.lineWidth=3;
    }else{
      c.strokeStyle=EDGE_COLORS[e.type]||"#57E3C4";
      c.globalAlpha=.85;
