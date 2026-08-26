@@ -1346,6 +1346,8 @@ function syncGraph(){
      
      // Determine direction based on whether this is a subcategory or main category
      const isSubcat = catId.includes('_sub_');
+     // For subcategory: edge goes from subcategory to thought (subcat -> thought)
+     // For main category: edge goes from thought to category (thought -> cat)
      const edgeDirection = isSubcat ? "subcatToThought" : "thoughtToCategory";
      
      // Check if edge already exists
@@ -1353,7 +1355,7 @@ function syncGraph(){
        (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
      );
      if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
-       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true,direction:edgeDirection});
+       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true,direction:edgeDirection,thoughtNode:note.id,categoryNode:catId});
      }
    });
  });
