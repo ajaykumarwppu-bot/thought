@@ -1344,12 +1344,16 @@ function syncGraph(){
        return;
      }
      
+     // Determine direction based on whether this is a subcategory or main category
+     const isSubcat = catId.includes('_sub_');
+     const edgeDirection = isSubcat ? "subcatToThought" : "thoughtToCategory";
+     
      // Check if edge already exists
      const edgeExists=graph.edges.some(e=>
        (e.a===note.id&&e.b===catId)||(e.a===catId&&e.b===note.id)
      );
      if(!edgeExists&&graph.nodes.find(n=>n.id===catId)){
-       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true,direction:"thoughtToCategory"});
+       graph.edges.push({a:note.id,b:catId,type:"relates",isCategoryLink:true,direction:edgeDirection});
      }
    });
  });
@@ -1405,8 +1409,11 @@ function drawGraph(now){
            // Parent category to subcategory
            fromNode = a; toNode = b;
          } else if(e.direction === "thoughtToCategory"){
-           // Thought/note to category (animate from thought to category)
+           // Thought/note to main category (animate from thought to category)
            fromNode = a; toNode = b;
+         } else if(e.direction === "subcatToThought"){
+           // Subcategory to thought/note (animate from subcategory to thought)
+           fromNode = b; toNode = a;
          } else if(a.isCategory && !b.isCategory){
            // Category to thought/note
            fromNode = a; toNode = b;
