@@ -1123,53 +1123,85 @@ function renderInspector(id){
  const conns=acceptedEdges().filter(s=>s.a===id||s.b===id);
  const pends=state.suggestions.filter(s=>s.status==="pending"&&(s.a===id||s.b===id));
  const deg=conns.length;
- $("#inspector").innerHTML=`
-  <div class="inshead">
-    <span style="font:600 11px var(--mono);letter-spacing:.14em;color:var(--leaf)">NOTE #${n.num}</span>
-    <span style="font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--faint)">${n.source==="voice"?"🎙 VOICE":"✎ TEXT"} · ${fmtDate(n.createdAt)}</span>
-    <button class="insclose" id="insx">✕</button>
-  </div>
-  <div class="insbody">
-   <div>
-     <h2>${esc(n.title)}</h2>
-     <div class="chips">${n.domains.map(domainChip).join("")}</div>
-   </div>
-   <div class="insblock">
-     <div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT — PRESERVED VERBATIM</div>
-     <div class="rescard orig" style="margin-top:0"><div class="notetext">${esc(n.original)}</div></div>
-   </div>
-   <div class="insblock">
-     <div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
-     <div class="rescard ref" style="margin-top:0">
-       <div class="disclaim">${ICON.spark} AI-generated. May contain interpretation errors — the original above is authoritative.</div>
-       <div class="notetext">${esc(n.refined)}</div>
+ const isConstellation=$("#shell").classList.contains("constellation-insp");
+ 
+ // For constellation view, use the same layout as AI output area
+ if(isConstellation){
+   $("#inspector").innerHTML=`
+    <div class="inshead">
+      <span style="font:600 11px var(--mono);letter-spacing:.14em;color:var(--leaf)">NOTE #${n.num}</span>
+      <span style="font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--faint)">${n.source==="voice"?"🎙 VOICE":"✎ TEXT"} · ${fmtDate(n.createdAt)}</span>
+      <button class="insclose" id="insx">✕</button>
+    </div>
+    <div class="insbody" style="padding:18px 20px 20px;gap:16px">
+      <div class="panel rise"><div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT · #${n.num} · PRESERVED VERBATIM</div><div class="notetext">${esc(n.original)}</div></div>
+      <div class="panel rise d1"><div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
+        <div class="disclaim">${ICON.spark} AI-generated refinement. May contain interpretation errors. Your original above is the source of truth.</div>
+        <div class="notetext">${esc(n.refined)}</div></div>
+      <div class="panel rise d2"><div class="lbl">CATEGORY ASSIGNMENT</div>
+        <div class="interp" style="color:var(--amber)">Categories were NOT auto-assigned. Please link this thought to categories manually using the inspector panel.</div>
+        <button class="btn btn-primary" id="opencatassign" style="margin-top:10px">${ICON.graph} Assign Categories Now</button>
+      </div>
+      ${pends.length?`<div class="panel rise d3"><div class="lbl" style="margin-top:18px"><span class="amb">${ICON.spark}</span> SUGGESTED RELATIONSHIPS — YOUR CALL</div><div id="ressuggs">${pends.map(s=>suggCard(s,"inspector")).join("")}</div></div>`:''}
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="openconst">${ICON.graph} Open in Constellation</button>
+        ${pendingCount()?`<button class="btn btn-amber btn-sm" id="openrev">Review queue (${pendingCount()})</button>`:""}
+      </div>
+    </div>`;
+   $("#insx").onclick=closeInspector;
+   const oc=$("#openconst"); if(oc) oc.onclick=()=>{setView("graph");selId=id;};
+   const orr=$("#openrev"); if(orr) orr.onclick=()=>setView("review");
+   const oca=$("#opencatassign"); if(oca) oca.onclick=()=>{setView("capture");setTimeout(()=>renderInspector(id),50);};
+ }else{
+   // Standard inspector view (side panel)
+   $("#inspector").innerHTML=`
+    <div class="inshead">
+      <span style="font:600 11px var(--mono);letter-spacing:.14em;color:var(--leaf)">NOTE #${n.num}</span>
+      <span style="font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--faint)">${n.source==="voice"?"🎙 VOICE":"✎ TEXT"} · ${fmtDate(n.createdAt)}</span>
+      <button class="insclose" id="insx">✕</button>
+    </div>
+    <div class="insbody">
+     <div>
+       <h2>${esc(n.title)}</h2>
+       <div class="chips">${n.domains.map(domainChip).join("")}</div>
      </div>
-   </div>
-   <div class="insblock">
-     <div class="lbl">${ICON.spark} AI TRANSPARENCY</div>
-     <div class="interp">${esc(n.interpretation)}</div>
-     ${conceptChips(n.concepts)}
-     <div style="margin:11px 0">${confBlock(n.confidence)}</div>
-     <ul class="limlist">${n.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
-   </div>
-   <div class="insblock">
-     ${renderCategoryAssignmentUI(id)}
-   </div>
-   <div class="insblock">
-     <div class="lbl">CONNECTIONS (${deg})</div>
-     ${conns.length?conns.map(s=>{const other=s.a===id?s.b:s.a;return `<div class="connitem" data-nav="${other}"><span class="tbadge ${s.type}">${s.type}</span><span class="cn">#${numOf(other)}</span><span style="color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(titleOf(other))}</span></div>`;}).join(""):`<div class="empty" style="padding:8px 0">No accepted connections yet.</div>`}
-     ${pends.map(s=>suggCard(s,"inspector")).join("")}
-   </div>
-   <div class="insblock">
-     <div class="lbl">${ICON.branch} EVOLUTION</div>
-     ${lineageBadges(id)||`<div class="insfoot">No lineage yet — future notes will attach here instead of replacing this one.</div>`}
-     <div class="insfoot" style="margin-top:9px">Every version of this idea remains accessible. Nothing is deleted.</div>
-   </div>
-   <button class="btn btn-ghost btn-sm" id="locate">${ICON.graph} Locate in Constellation</button>
-  </div>`;
- $("#insx").onclick=closeInspector;
- $("#locate").onclick=()=>{setView("graph");selId=id;};
- bindSuggActs();
+     <div class="insblock">
+       <div class="lbl"><span class="leaf">${ICON.lock}</span> ORIGINAL THOUGHT — PRESERVED VERBATIM</div>
+       <div class="rescard orig" style="margin-top:0"><div class="notetext">${esc(n.original)}</div></div>
+     </div>
+     <div class="insblock">
+       <div class="lbl"><span class="amb">${ICON.spark}</span> AI REFINED VERSION</div>
+       <div class="rescard ref" style="margin-top:0">
+         <div class="disclaim">${ICON.spark} AI-generated. May contain interpretation errors — the original above is authoritative.</div>
+         <div class="notetext">${esc(n.refined)}</div>
+       </div>
+     </div>
+     <div class="insblock">
+       <div class="lbl">${ICON.spark} AI TRANSPARENCY</div>
+       <div class="interp">${esc(n.interpretation)}</div>
+       ${conceptChips(n.concepts)}
+       <div style="margin:11px 0">${confBlock(n.confidence)}</div>
+       <ul class="limlist">${n.limitations.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
+     </div>
+     <div class="insblock">
+       ${renderCategoryAssignmentUI(id)}
+     </div>
+     <div class="insblock">
+       <div class="lbl">CONNECTIONS (${deg})</div>
+       ${conns.length?conns.map(s=>{const other=s.a===id?s.b:s.a;return `<div class="connitem" data-nav="${other}"><span class="tbadge ${s.type}">${s.type}</span><span class="cn">#${numOf(other)}</span><span style="color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(titleOf(other))}</span></div>`;}).join(""):`<div class="empty" style="padding:8px 0">No accepted connections yet.</div>`}
+       ${pends.map(s=>suggCard(s,"inspector")).join("")}
+     </div>
+     <div class="insblock">
+       <div class="lbl">${ICON.branch} EVOLUTION</div>
+       ${lineageBadges(id)||`<div class="insfoot">No lineage yet — future notes will attach here instead of replacing this one.</div>`}
+       <div class="insfoot" style="margin-top:9px">Every version of this idea remains accessible. Nothing is deleted.</div>
+     </div>
+     <button class="btn btn-ghost btn-sm" id="locate">${ICON.graph} Locate in Constellation</button>
+    </div>`;
+   $("#insx").onclick=closeInspector;
+   $("#locate").onclick=()=>{setView("graph");selId=id;};
+   bindSuggActs();
+ }
 }
 
 /* ============================== graph engine ============================== */
