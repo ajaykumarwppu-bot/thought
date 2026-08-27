@@ -1116,7 +1116,8 @@ function downloadMD(){
 
 /* ============================== inspector ============================== */
 function openNote(id){ selId=id; renderInspector(id); $("#shell").classList.add("insp"); }
-function closeInspector(){ selId=null; $("#shell").classList.remove("insp"); if(gcanvas) syncGraph(); }
+function openNoteInConstellation(id){ selId=id; renderInspector(id); $("#shell").classList.remove("insp"); $("#shell").classList.add("constellation-insp"); }
+function closeInspector(){ selId=null; $("#shell").classList.remove("insp","constellation-insp"); if(gcanvas) syncGraph(); }
 function renderInspector(id){
  const n=noteOf(id); if(!n){closeInspector();return;}
  const conns=acceptedEdges().filter(s=>s.a===id||s.b===id);
@@ -1194,7 +1195,7 @@ function initGraphCanvas(){
        switchSettingsTab('categories');
        openSettingsPanel();
      }else{
-       selId=d.n.id;renderInspector(selId);$("#shell").classList.add("insp");
+       selId=d.n.id;renderInspector(selId);$("#shell").classList.remove("insp");$("#shell").classList.add("constellation-insp");
      }
    }
  };
