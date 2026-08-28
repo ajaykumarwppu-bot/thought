@@ -480,7 +480,10 @@ function buildNav(){
      } else {
        item.classList.remove("active");
      }
-     item.onclick = () => {
+     // Use touchstart for faster mobile response, fallback to click
+     const handleNavClick = (e) => {
+       e.preventDefault();
+       e.stopPropagation();
        // Map bottom nav view names to actual view names
        const viewMap = {
          "capture": "capture",
@@ -492,6 +495,8 @@ function buildNav(){
        };
        setView(viewMap[viewName] || viewName);
      };
+     item.onclick = handleNavClick;
+     item.ontouchend = handleNavClick;
    });
  }
 }
