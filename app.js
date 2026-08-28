@@ -487,7 +487,8 @@ function buildNav(){
          "review": "review",
          "timeline": "timeline",
          "constellation": "graph",
-         "calendar": "timeline"
+         "search": "search",
+         "export": "export"
        };
        setView(viewMap[viewName] || viewName);
      };
