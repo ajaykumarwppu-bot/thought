@@ -257,7 +257,9 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   #shell.constellation-insp #inspector{position:relative;right:auto;top:auto;bottom:auto;width:100%;box-shadow:none}
 }
 @media (max-width:900px){
-  #shell,#shell.insp{grid-template-columns:60px 1fr}
+  /* Hide side navigation completely on mobile - use bottom nav instead */
+  #shell,#shell.insp{grid-template-columns:0 1fr}
+  #side{display:none}
   .navitem span.nl,.navlbl,.statrow,#sidefoot,.brand .bt,.brand-text,.settings-label{display:none}
   .capgrid,.expgrid{grid-template-columns:1fr}
   /* Mobile touch optimizations */
@@ -271,9 +273,15 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   .btn:active,.tab:active,.micbtn:active,.navitem:active{transform:scale(0.97)}
   /* Improve touch target sizes for navigation items */
   .navitem{padding:12px 12px;min-height:48px}
-  /* Fix scrolling issues on mobile */
-  #main{-webkit-overflow-scrolling:touch}
+  /* Fix scrolling issues on mobile - enable proper scroll on main content */
+  #main{-webkit-overflow-scrolling:touch;overflow-y:auto;overflow-x:hidden}
   #inspector{-webkit-overflow-scrolling:touch}
+  /* Ensure body allows scrolling */
+  body{overflow-y:auto;overflow-x:hidden}
+  /* Ensure app container allows content to scroll */
+  #app{height:100dvh;overflow:hidden}
+  /* Ensure shell takes available space */
+  #shell{height:calc(100dvh - 56px);margin-top:56px}
   /* Ensure graph panel is properly sized on mobile */
   .graphpanel{height:min(75vh,500px);min-height:400px}
   /* Mobile bottom navigation bar */
@@ -292,9 +300,13 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   .bottom-nav-item:hover{color:var(--ink);background:rgba(143,227,136,.06)}
   .bottom-nav-item.active{color:var(--leaf);background:rgba(143,227,136,.1);border-color:rgba(143,227,136,.22)}
   .bottom-nav-item span{font-size:9px;font-weight:500;letter-spacing:.02em}
-  /* Adjust main content padding for bottom nav */
-  #main{padding-bottom:80px}
+  /* Adjust main content padding for bottom nav and topbar */
+  #main{padding-bottom:80px;padding-top:10px}
   .graphpanel{height:min(65vh,450px);min-height:350px}
+  /* Fix capture view layout on mobile */
+  .capgrid{gap:15px}
+  .micbtn{width:80px;height:80px}
+  .micbtn svg{width:26px;height:26px}
 }
 /* Hide bottom nav on desktop */
 #bottomnav{display:none}
