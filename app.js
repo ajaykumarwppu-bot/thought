@@ -1213,13 +1213,13 @@ function initGraphCanvas(){
  const fit=()=>{const r=wrap.getBoundingClientRect(),d=window.devicePixelRatio||1;
    gcanvas.width=r.width*d; gcanvas.height=r.height*d; graph.w=r.width; graph.h=r.height; gctx.setTransform(d,0,0,d,0,0);};
  fit(); new ResizeObserver(fit).observe(wrap);
- gcanvas.onpointerdown=e=>{const p=gpos(e),n=hitNode(p);
+ gcanvas.onpointerdown=e=>{e.preventDefault();const p=gpos(e),n=hitNode(p);
    if(n){graph.drag={n,sx:p.x,sy:p.y,moved:false};gcanvas.classList.add("drag");gcanvas.setPointerCapture(e.pointerId);}};
- gcanvas.onpointermove=e=>{const p=gpos(e);
+ gcanvas.onpointermove=e=>{if(graph.drag){e.preventDefault();}const p=gpos(e);
    if(graph.drag){const d=graph.drag; if(Math.hypot(p.x-d.sx,p.y-d.sy)>4)d.moved=true;
      d.n.x=p.x;d.n.y=p.y;d.n.vx=0;d.n.vy=0;}
    graph.hover=hitNode(p); gcanvas.style.cursor=graph.hover?"pointer":(graph.drag?"grabbing":"grab");};
- gcanvas.onpointerup=e=>{const d=graph.drag;graph.drag=null;gcanvas.classList.remove("drag");
+ gcanvas.onpointerup=e=>{if(graph.drag)e.preventDefault();const d=graph.drag;graph.drag=null;gcanvas.classList.remove("drag");
    if(d&&!d.moved){
      // Check if clicked on a category node
      if(d.n.isCategory){
@@ -1231,6 +1231,14 @@ function initGraphCanvas(){
      }
    }
  };
+ // Fallback touch events for mobile browsers that don't support pointer events
+ gcanvas.ontouchstart=e=>{if(e.touches.length===1){e.preventDefault();const t=e.touches[0],r=gcanvas.getBoundingClientRect(),p={x:t.clientX-r.left,y:t.clientY-r.top},n=hitNode(p);
+   if(n){graph.drag={n,sx:p.x,sy:p.y,moved:false};gcanvas.classList.add("drag");}}};
+ gcanvas.ontouchmove=e=>{if(graph.drag&&e.touches.length===1){e.preventDefault();const t=e.touches[0],r=gcanvas.getBoundingClientRect(),p={x:t.clientX-r.left,y:t.clientY-r.top},d=graph.drag;
+   if(Math.hypot(p.x-d.sx,p.y-d.sy)>4)d.moved=true;d.n.x=p.x;d.n.y=p.y;d.n.vx=0;d.n.vy=0;}};
+ gcanvas.ontouchend=e=>{if(graph.drag)e.preventDefault();const d=graph.drag;graph.drag=null;gcanvas.classList.remove("drag");
+   if(d&&!d.moved){if(d.n.isCategory){switchSettingsTab('categories');openSettingsPanel();}else{selId=d.n.id;renderInspector(selId);$("#shell").classList.remove("insp");$("#shell").classList.add("constellation-insp");}}};
+ gcanvas.ontouchcancel=e=>{graph.drag=null;gcanvas.classList.remove("drag");};
 }
 function gpos(e){const r=gcanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function hitNode(p){for(let i=graph.nodes.length-1;i>=0;i--){const n=graph.nodes[i];if(Math.hypot(p.x-n.x,p.y-n.y)<(n.r||12)+7)return n;}return null;}
