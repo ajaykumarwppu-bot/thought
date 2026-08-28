@@ -259,6 +259,11 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   #shell,#shell.insp{grid-template-columns:60px 1fr}
   .navitem span.nl,.navlbl,.statrow,#sidefoot,.brand .bt{display:none}
   .capgrid,.expgrid{grid-template-columns:1fr}
+  /* Mobile touch optimizations */
+  .btn,.tab,.micbtn,.cat-edit-btn,.cat-delete-btn,.subcat-delete-btn,.cat-add-subcat-btn{min-height:44px;min-width:44px}
+  .settings-tab{padding:16px 20px;font-size:14px}
+  #gcanvas{touch-action:none;-webkit-user-select:none;user-select:none}
+  input,textarea,select{font-size:16px!important} /* Prevent iOS zoom on focus */
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
