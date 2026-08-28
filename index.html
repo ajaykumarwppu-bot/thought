@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Rhizome — Personal Knowledge Evolution Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,28 +31,28 @@
     <aside id="inspector"></aside>
   </div>
   <!-- Mobile Bottom Navigation -->
-  <nav id="bottomnav">
-    <button class="bottom-nav-item active" data-view="capture">
+  <nav id="bottomnav" role="navigation" aria-label="Mobile bottom navigation">
+    <button class="bottom-nav-item active" data-view="capture" role="button" aria-label="Capture">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       <span>Capture</span>
     </button>
-    <button class="bottom-nav-item" data-view="review">
+    <button class="bottom-nav-item" data-view="review" role="button" aria-label="Review">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span>Review</span>
     </button>
-    <button class="bottom-nav-item" data-view="timeline">
+    <button class="bottom-nav-item" data-view="timeline" role="button" aria-label="Timeline">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span>Timeline</span>
     </button>
-    <button class="bottom-nav-item" data-view="constellation">
+    <button class="bottom-nav-item" data-view="constellation" role="button" aria-label="Constellation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/><circle cx="12" cy="12" r="8"/></svg>
       <span>Constellation</span>
     </button>
-    <button class="bottom-nav-item" data-view="search">
+    <button class="bottom-nav-item" data-view="search" role="button" aria-label="Search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <span>Search</span>
     </button>
-    <button class="bottom-nav-item" data-view="export">
+    <button class="bottom-nav-item" data-view="export" role="button" aria-label="Export">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M8 7l4-4 4 4M4 21h16"/></svg>
       <span>Export</span>
     </button>
