@@ -503,7 +503,12 @@ function updateStats(){
   <div class="stat amb"><b>${pendingCount()}</b><span>Pending</span></div>
   <div class="stat vi"><b>${conc}</b><span>Concepts</span></div>`;
 }
-function setView(v){ stopRec(); current=v; buildNav(); renderMain(); $("#main").scrollTop=0; }
+function setView(v){ stopRec(); current=v; buildNav(); renderMain(); $("#main").scrollTop=0; 
+  // Remove constellation-insp class when switching away from graph view
+  if(v !== "graph"){
+    $("#shell").classList.remove("constellation-insp");
+  }
+}
 function renderMain(){
  stopRec();
  ({graph:renderGraph,capture:renderCapture,review:renderReview,timeline:renderTimeline,search:renderSearch,export:renderExport}[current])();
@@ -514,6 +519,9 @@ function renderGraph(){
  const doms=[...new Set(state.notes.flatMap(n=>n.domains))];
  // Only show main categories (not subcategories) in the legend at the top
  const allCats=[...new Set([...doms,...customCategories.map(c=>c.name)])];
+ 
+ // Add constellation-insp class for proper mobile layout
+ $("#shell").classList.add("constellation-insp");
  
  $("#main").innerHTML=`
   <div class="panel graphpanel rise d1" id="gwrap">
@@ -537,6 +545,9 @@ function renderGraph(){
 
 /* ---------- capture view ---------- */
 function renderCapture(){
+ // Remove constellation-insp class when rendering capture view
+ $("#shell").classList.remove("constellation-insp");
+ 
  $("#main").innerHTML=`
  <div class="viewhead rise">
    <div class="eyebrow">Capture</div>
@@ -759,6 +770,9 @@ async function processNote(){
 
 /* ---------- review view ---------- */
 function renderReview(){
+ // Remove constellation-insp class when rendering review view
+ $("#shell").classList.remove("constellation-insp");
+ 
  const pend=state.suggestions.filter(s=>s.status==="pending").sort((a,b)=>b.score-a.score);
  const hist=state.suggestions.filter(s=>s.status!=="pending").slice(-6).reverse();
  $("#main").innerHTML=`
@@ -1142,7 +1156,15 @@ function downloadMD(){
 /* ============================== inspector ============================== */
 function openNote(id){ selId=id; renderInspector(id); $("#shell").classList.add("insp"); }
 function openNoteInConstellation(id){ selId=id; renderInspector(id); $("#shell").classList.remove("insp"); $("#shell").classList.add("constellation-insp"); }
-function closeInspector(){ selId=null; $("#shell").classList.remove("insp","constellation-insp"); if(gcanvas) syncGraph(); }
+function closeInspector(){ 
+  selId=null; 
+  $("#shell").classList.remove("insp","constellation-insp"); 
+  // When closing inspector, return to graph view if we were in constellation mode
+  if(current === "graph"){
+    renderGraph();
+  }
+  if(gcanvas) syncGraph(); 
+}
 function renderInspector(id){
  const n=noteOf(id); if(!n){closeInspector();return;}
  const conns=acceptedEdges().filter(s=>s.a===id||s.b===id);
