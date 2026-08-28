@@ -469,6 +469,30 @@ function buildNav(){
    return `<div class="navitem ${current===v?"on":""}" data-view="${v}">${icon}<span class="nl">${label}</span>${badge}</div>`;
  }).join("");
  $$("#nav .navitem").forEach(el=>el.onclick=()=>setView(el.dataset.view));
+ 
+ // Update mobile bottom nav
+ const bottomNavItems = $$(".bottom-nav-item");
+ if(bottomNavItems.length > 0){
+   bottomNavItems.forEach(item => {
+     const viewName = item.dataset.view;
+     if(viewName === current || (current === "graph" && viewName === "constellation") || (current === "capture" && viewName === "capture")){
+       item.classList.add("active");
+     } else {
+       item.classList.remove("active");
+     }
+     item.onclick = () => {
+       // Map bottom nav view names to actual view names
+       const viewMap = {
+         "capture": "capture",
+         "review": "review",
+         "timeline": "timeline",
+         "constellation": "graph",
+         "calendar": "timeline"
+       };
+       setView(viewMap[viewName] || viewName);
+     };
+   });
+ }
 }
 function updateStats(){
  const links=acceptedEdges().length, conc=new Set(state.notes.flatMap(n=>n.concepts.map(c=>c.name))).size;
