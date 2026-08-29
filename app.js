@@ -1093,12 +1093,15 @@ function runSearch(q){
 function renderCanvas(){
   // Canvas feature is now fully implemented
   if (typeof FreeCanvasManager !== 'undefined') {
-    // Hide the main app container to show full-screen canvas
-    $('#main').innerHTML = '<div id="view-canvas" style="height:100%;"></div>';
-    // Initialize and render the canvas manager
-    setTimeout(() => {
-      FreeCanvasManager.render();
-    }, 10);
+    // Clear main content and setup canvas container
+    $('#main').innerHTML = '<div id="view-canvas" style="height:100%;width:100%;"></div>';
+    
+    // Wait for DOM to update before initializing canvas
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        FreeCanvasManager.render();
+      });
+    });
   } else {
     $("#main").innerHTML=`
     <div class="viewhead rise">
