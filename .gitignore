@@ -42,7 +42,5 @@ dist/
 build/
 target/
 .gradle/
-
-# Cache directories
 .mypy_cache/
 .pytest_cache/

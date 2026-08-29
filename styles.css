@@ -50,10 +50,10 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
 #shell.insp{grid-template-columns:232px 1fr 400px}
 /* Desktop-only constellation-insp layout - do not apply on mobile */
 @media (min-width:901px){
-  #shell.constellation-insp{display:flex;flex-direction:column;height:calc(100vh - 60px)}
+  #shell.constellation-insp{grid-template-columns:232px 1fr 400px}
   #shell.constellation-insp #side{height:auto;border-right:1px solid var(--line)}
   #shell.constellation-insp #main{overflow:hidden;padding:0;display:flex;flex-direction:column;flex:1;min-height:0}
-  #shell.constellation-insp .graphpanel{height:min(55vh,600px);min-height:400px;border-radius:0;border-bottom:1px solid var(--line);flex-shrink:0}
+  #shell.constellation-insp .graphpanel{height:100%;min-height:400px;border-radius:0;border-bottom:none;flex-shrink:1}
 }
 #side{border-right:1px solid var(--line);padding:18px 14px 14px;display:flex;flex-direction:column;gap:4px;background:rgba(8,18,12,.5)}
 .navlbl{font:600 9.5px var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--faint);padding:0 12px;margin:12px 0 6px}
@@ -76,7 +76,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
 #shell.insp #inspector{width:400px;opacity:1;display:block}
 /* Desktop-only constellation-insp inspector */
 @media (min-width:901px){
-  #shell.constellation-insp #inspector{width:100%;height:350px;min-height:280px;opacity:1;display:block;border-top:1px solid var(--line);border-left:none}
+  #shell.constellation-insp #inspector{width:400px;height:calc(100vh - 60px);min-height:280px;opacity:1;display:block;border-top:none;border-left:1px solid var(--line)}
 }
 
 /* ---------- shared ---------- */
@@ -241,16 +241,12 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 
 /* ---------- inspector ---------- */
 .inshead{position:sticky;top:0;background:#0B1811ee;backdrop-filter:blur(5px);padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;z-index:3}
-@media (min-width:901px){
-  #shell.constellation-insp .inshead{background:#0B1811f7}
-}
+#shell.constellation-insp .inshead{background:#0B1811f7}
 .insclose{margin-left:auto;background:none;border:1px solid var(--line);color:var(--dim);width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:13px;transition:.15s}
 .insclose:hover{color:var(--ink);border-color:var(--line2)}
 .insbody{padding:18px 20px 40px;display:flex;flex-direction:column;gap:18px;opacity:0;transform:translateX(10px);transition:opacity .2s ease,transform .2s ease}
 #shell.insp .insbody{opacity:1;transform:none}
-@media (min-width:901px){
-  #shell.constellation-insp .insbody{opacity:1;transform:none;animation:slideUp .25s ease-out}
-}
+#shell.constellation-insp .insbody{opacity:1;transform:none}
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .insbody h2{font-family:var(--disp);font-weight:750;font-size:21px;letter-spacing:-.02em;line-height:1.15;margin-bottom:8px}
 .insblock .notetext{font-size:13px}
@@ -275,7 +271,7 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
 @media (max-width:1180px){
   #shell.insp{grid-template-columns:232px 1fr 400px}
   #inspector{position:fixed;right:0;top:60px;bottom:0;width:min(400px,92vw);z-index:50;box-shadow:-24px 0 60px rgba(0,0,0,.5)}
-  #shell.constellation-insp #inspector{position:relative;right:auto;top:auto;bottom:auto;width:100%;box-shadow:none}
+  #shell.constellation-insp #inspector{position:fixed;right:0;top:60px;bottom:0;width:min(400px,92vw);z-index:50;box-shadow:-24px 0 60px rgba(0,0,0,.5)}
 }
 @media (max-width:900px){
   /* Hide side navigation completely on mobile - use bottom nav instead */
