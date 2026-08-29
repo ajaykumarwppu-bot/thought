@@ -1091,15 +1091,25 @@ function runSearch(q){
 
 /* ---------- canvas view ---------- */
 function renderCanvas(){
- $("#main").innerHTML=`
- <div class="viewhead rise">
-   <div class="eyebrow">Canvas</div>
-   <h1 class="vt">Planning Canvas</h1>
-   <p class="sub">Your planning canvas will be implemented here. This feature is under development.</p>
- </div>
- <div id="canvas-content" style="padding:20px;text-align:center;color:var(--dim);">
-   <p>Canvas functionality coming soon...</p>
- </div>`;
+  // Canvas feature is now fully implemented
+  if (typeof FreeCanvasManager !== 'undefined') {
+    // Hide the main app container to show full-screen canvas
+    $('#main').innerHTML = '<div id="view-canvas" style="height:100%;"></div>';
+    // Initialize and render the canvas manager
+    setTimeout(() => {
+      FreeCanvasManager.render();
+    }, 10);
+  } else {
+    $("#main").innerHTML=`
+    <div class="viewhead rise">
+      <div class="eyebrow">Canvas</div>
+      <h1 class="vt">Planning Canvas</h1>
+      <p class="sub">Your planning canvas will be implemented here. This feature is under development.</p>
+    </div>
+    <div id="canvas-content" style="padding:20px;text-align:center;color:var(--dim);">
+      <p>Canvas functionality coming soon...</p>
+    </div>`;
+  }
 }
 
 /* ---------- export view ---------- */

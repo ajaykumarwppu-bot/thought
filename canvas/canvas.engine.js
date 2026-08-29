@@ -1,5 +1,31 @@
 ﻿// modules/canvas.engine.js
 
+// Storage helper module for Canvas feature
+const Storage = {
+  load: function(key) {
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch(e) {
+      console.error('Storage.load error:', e);
+      return null;
+    }
+  },
+  save: function(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch(e) {
+      console.error('Storage.save error:', e);
+    }
+  },
+  remove: function(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch(e) {
+      console.error('Storage.remove error:', e);
+    }
+  }
+};
 const CanvasEngine = {
     // 🌟 आपके @task और @date को निकालकर ग्लोबल लिस्ट में भेजने वाला लॉजिक
     extractGlobalTasks: function(canvasId, nodes) {
