@@ -72,6 +72,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
 #sidefoot a:hover{color:var(--coral)}
 
 #main{overflow-y:auto;padding:26px 30px 70px;min-width:0;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.canvas-view-host{height:100%;min-height:360px;width:100%}
 #inspector{border-left:1px solid var(--line);background:#0B1811;overflow-y:auto;width:0;opacity:0;transition:width .25s ease,opacity .2s ease;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 #shell.insp #inspector{width:400px;opacity:1;display:block}
 /* Desktop-only constellation-insp inspector */
