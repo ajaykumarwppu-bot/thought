@@ -12,6 +12,7 @@ const ICON={
  inbox:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 9.5L4.5 3h7L14 9.5V13H2z"/><path d="M2 9.5h4l1 2h2l1-2h4"/></svg>',
  branch:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="3.5" r="2"/><circle cx="4" cy="12.5" r="2"/><circle cx="12" cy="8" r="2"/><path d="M4 5.5v5M5.7 4.5c3 1.5 4.6 2.5 4.6 2.5"/></svg>',
  canvas:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M6 2v12"/></svg>',
+ search:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>',
  export:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 10V2M5 5l3-3 3 3M2.5 10.5v3h11v-3"/></svg>',
  lock:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="7" rx="1.5"/><path d="M5.5 7V4.5a2.5 2.5 0 015 0V7"/></svg>',
  spark:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1.5l1.3 3.9L13.5 7l-4.2 1.6L8 12.5 6.7 8.6 2.5 7l4.2-1.6z"/><path d="M12.5 11l.6 1.9 1.9.6-1.9.6-.6 1.9-.6-1.9-1.9-.6 1.9-.6z"/></svg>',
@@ -459,7 +460,7 @@ function ingestNote(source,text){
 }
 
 /* ============================== router & views ============================== */
-let current="capture", selId=null, capTab="text", lastExport=null;
+let current="capture", selId=null, capTab="text", lastExport=null, searchPreset="";
 const VIEWS=[["capture","Capture"],["graph","Constellation"],["review","Review"],["timeline","Timeline"],["canvas","Canvas"],["export","Export"]];
 
 function buildNav(){
@@ -508,7 +509,7 @@ function updateStats(){
   <div class="stat amb"><b>${pendingCount()}</b><span>Pending</span></div>
   <div class="stat vi"><b>${conc}</b><span>Concepts</span></div>`;
 }
-function setView(v){ stopRec(); current=v; buildNav(); renderMain(); $("#main").scrollTop=0; 
+function setView(v){ stopRec(); current=v; if(v!=="search") searchPreset=""; buildNav(); renderMain(); $("#main").scrollTop=0;
   // Remove constellation-insp class when switching away from graph view
   if(v !== "graph"){
     $("#shell").classList.remove("constellation-insp");
@@ -516,7 +517,7 @@ function setView(v){ stopRec(); current=v; buildNav(); renderMain(); $("#main").
 }
 function renderMain(){
  stopRec();
- ({graph:renderGraph,capture:renderCapture,review:renderReview,timeline:renderTimeline,canvas:renderCanvas,export:renderExport}[current])();
+ ({graph:renderGraph,capture:renderCapture,review:renderReview,timeline:renderTimeline,search:()=>renderSearch(searchPreset),canvas:renderCanvas,export:renderExport}[current])();
 }
 
 /* ---------- graph view ---------- */
@@ -1091,28 +1092,18 @@ function runSearch(q){
 
 /* ---------- canvas view ---------- */
 function renderCanvas(){
-  // Canvas feature is now fully implemented
-  if (typeof FreeCanvasManager !== 'undefined') {
-    // Clear main content and setup canvas container
-    $('#main').innerHTML = '<div id="view-canvas" style="height:100%;width:100%;"></div>';
-    
-    // Wait for DOM to update before initializing canvas
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        FreeCanvasManager.render();
-      });
-    });
-  } else {
-    $("#main").innerHTML=`
-    <div class="viewhead rise">
-      <div class="eyebrow">Canvas</div>
-      <h1 class="vt">Planning Canvas</h1>
-      <p class="sub">Your planning canvas will be implemented here. This feature is under development.</p>
-    </div>
-    <div id="canvas-content" style="padding:20px;text-align:center;color:var(--dim);">
-      <p>Canvas functionality coming soon...</p>
-    </div>`;
+  if (typeof FreeCanvasManager === 'undefined') {
+    console.error('Canvas scripts did not load; FreeCanvasManager is unavailable.');
+    $("#main").innerHTML='<div class="empty">Canvas failed to load. Refresh the page and try again.</div>';
+    return;
   }
+
+  // The manager must be mounted in the active route. Keeping a second
+  // #view-canvas outside #main caused setup() to render into that detached,
+  // hidden container while the route itself remained empty.
+  $('#main').innerHTML = '<div id="view-canvas" class="canvas-view-host"></div>';
+  FreeCanvasManager.setup();
+  FreeCanvasManager.render();
 }
 
 /* ---------- export view ---------- */
@@ -1745,7 +1736,12 @@ loadDeletedIds();
 loadCustomCategories();
 load(); buildNav(); updateStats(); renderMain(); requestAnimationFrame(loop);
 // #capbtn removed - replaced with settings button
-$("#gsearch").addEventListener("keydown",e=>{if(e.key==="Enter"){setView("canvas");const v=$("#gsearch").value;setTimeout(()=>{},30);}else if(e.key==="Enter"&&e.shiftKey){setView("capture");}});
+$("#gsearch").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  searchPreset=$("#gsearch").value.trim();
+  setView("search");
+});
 $("#resetlink").onclick=()=>{if(confirm("Reset all demo data? Your local notes will be replaced by the seed knowledge base. (Permanently deleted notes will NOT be restored.)")){localStorage.removeItem(LSKEY);location.reload();}};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInspector();});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(b)resolveSuggestion(b.dataset.sid,b.dataset.act,b.dataset.ctx);});

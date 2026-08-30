@@ -63,7 +63,12 @@ const FreeCanvasManager = {
     },
 
     render: function() {
-        if (!document.getElementById('canvas-manager-view')) this.setup();
+        const container = document.getElementById(this.containerId);
+        if (!container) {
+            console.error('Canvas mount container was not found.');
+            return;
+        }
+        if (!container.querySelector('#canvas-manager-view')) this.setup();
         document.getElementById('canvas-manager-view').style.display = 'block';
         const workspace = document.getElementById('canvas-workspace');
         if(workspace) workspace.style.display = 'none';
@@ -724,7 +729,3 @@ const FreeCanvasManager = {
         loadState(); updateTransform(); renderNodes(); renderEdges();
     }
 };
-
-document.addEventListener("DOMContentLoaded", () => {
-    FreeCanvasManager.setup();
-});
