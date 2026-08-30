@@ -1093,10 +1093,21 @@ function runSearch(q){
 function renderCanvas(){
   // Canvas feature is now fully implemented
   if (typeof FreeCanvasManager !== 'undefined') {
-    // Clear main content and setup canvas container
-    $('#main').innerHTML = '<div id="view-canvas" style="height:100%;width:100%;"></div>';
+    // Always use the container in index.html, not inside #main
+    let canvasContainer = document.getElementById('view-canvas');
     
-    // Wait for DOM to update before initializing canvas
+    // Ensure we have the container
+    if (!canvasContainer) {
+      $('#main').innerHTML = '<div id="view-canvas" style="height:100%;width:100%;"></div>';
+      canvasContainer = document.getElementById('view-canvas');
+    }
+    
+    // Setup the canvas UI if not already done
+    if (!document.getElementById('canvas-manager-view')) {
+      FreeCanvasManager.setup();
+    }
+    
+    // Wait for DOM to update before rendering
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         FreeCanvasManager.render();

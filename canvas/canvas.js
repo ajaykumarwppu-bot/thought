@@ -725,6 +725,4 @@ const FreeCanvasManager = {
     }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-    FreeCanvasManager.setup();
-});
+// Remove DOMContentLoaded setup - app.js will call setup() when needed
