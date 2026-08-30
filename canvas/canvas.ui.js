@@ -4,7 +4,7 @@ const CanvasUI = {
     // 🌟 यहाँ आपका पूरा CSS है (Flexbox Alignment Bug Fixed)
     styles: `
         /* --- Canvas Manager UI Styles --- */
-        #canvas-manager-view { padding: 20px; color: #fff; height: 100%; overflow-y: auto; display: block; }
+        #canvas-manager-view { padding: 20px; color: #fff; height: 100%; overflow-y: auto; }
         .canvas-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .canvas-header-flex h2 { margin: 0; font-size: 24px; }
         .btn-add-canvas { background: #a371f7; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
