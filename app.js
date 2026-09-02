@@ -1180,7 +1180,12 @@ function openNote(id){ selId=id; renderInspector(id); $("#shell").classList.add(
 function openNoteInConstellation(id){ selId=id; renderInspector(id); $("#shell").classList.remove("insp"); $("#shell").classList.add("constellation-insp"); }
 function closeInspector(){ 
   selId=null; 
-  $("#shell").classList.remove("insp","constellation-insp"); 
+  // Only remove constellation-insp if not in graph view, to keep the full-screen layout
+  const wasInGraph = current === "graph";
+  $("#shell").classList.remove("insp");
+  if(!wasInGraph){
+    $("#shell").classList.remove("constellation-insp");
+  }
   // When closing inspector, return to graph view if we were in constellation mode
   if(current === "graph"){
     renderGraph();
