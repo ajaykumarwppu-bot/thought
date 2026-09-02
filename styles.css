@@ -307,11 +307,12 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   html{height:100dvh;overflow:hidden;touch-action:pan-y}
   /* Ensure app container allows content to scroll */
   #app{height:100dvh;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-y}
-  /* Shell should be flex column between topbar and bottom nav */
-  #shell{flex:1;display:flex;flex-direction:column;min-height:0;margin-top:0;height:auto;width:100%;touch-action:pan-y}
-  /* Main content area scrolls independently - critical for mobile scrolling */
-  #main{-webkit-overflow-scrolling:touch;overflow-y:auto;overflow-x:hidden;padding-top:calc(70px + env(safe-area-inset-top));padding-bottom:calc(20px + env(safe-area-inset-bottom));margin-top:0;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
-  #inspector{-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  /* Shell should contain a single independently scrolling content region. */
+  #shell{flex:1;display:flex;flex-direction:column;min-height:0;margin-top:0;height:auto;width:100%;overflow:hidden;touch-action:pan-y}
+  /* Keep the scrollport bounded, including when content is taller than the viewport. */
+  #main{flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;padding-top:calc(70px + env(safe-area-inset-top));padding-bottom:calc(84px + env(safe-area-inset-bottom));margin-top:0;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
+  #inspector,#shell.constellation-insp #inspector{-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;top:calc(56px + env(safe-area-inset-top));bottom:calc(64px + env(safe-area-inset-bottom))}
+  #toasts{bottom:calc(82px + env(safe-area-inset-bottom))}
   /* Ensure graph panel is properly sized on mobile */
   .graphpanel{height:min(75vh,500px);min-height:400px}
   /* Mobile bottom navigation bar */
@@ -325,7 +326,7 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   .brand{order:1}
   /* Add bottom navigation bar for mobile - FIXED POSITION */
   #bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(64px + env(safe-area-inset-bottom));background:rgba(9,20,14,.98);backdrop-filter:blur(10px);border-top:1px solid var(--line);z-index:100;padding:0 4px;gap:2px;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom);touch-action:pan-y;-webkit-tap-highlight-color:transparent}
-  .bottom-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 8px;min-width:52px;min-height:52px;color:var(--dim);background:transparent;border:none;border-radius:10px;cursor:pointer;transition:.16s;font-size:9px;flex:1;max-width:80px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .bottom-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px;min-width:44px;min-height:52px;color:var(--dim);background:transparent;border:none;border-radius:10px;cursor:pointer;transition:.16s;font-size:9px;flex:1;max-width:80px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .bottom-nav-item svg{width:20px;height:20px;flex:none;stroke-width:1.8;pointer-events:none}
   .bottom-nav-item:hover{color:var(--ink);background:rgba(143,227,136,.06)}
   .bottom-nav-item.active{color:var(--leaf);background:rgba(143,227,136,.08)}
@@ -335,8 +336,8 @@ select.sel{width:100%;background:#0A1810;border:1px solid var(--line2);color:var
   .micbtn{width:76px;height:76px}
   .micbtn svg{width:24px;height:24px}
 }
-/* Hide bottom nav on desktop */
-#bottomnav{display:none}
+/* Hide bottom nav on desktop without overriding the mobile rule above. */
+@media (min-width:901px){#bottomnav{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 
