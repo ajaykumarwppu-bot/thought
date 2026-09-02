@@ -50,8 +50,8 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
 #shell.insp{grid-template-columns:232px 1fr 400px}
 /* Desktop-only constellation-insp layout - do not apply on mobile */
 @media (min-width:901px){
-  #shell.constellation-insp{grid-template-columns:232px 1fr 0}
-  #shell.constellation-insp.insp{grid-template-columns:232px 1fr 400px}
+  #shell.constellation-insp{grid-template-columns:232px minmax(0, 1fr) 0}
+  #shell.constellation-insp.insp{grid-template-columns:232px minmax(0, 1fr) 400px}
   #shell.constellation-insp #side{height:auto;border-right:1px solid var(--line)}
   #shell.constellation-insp #main{overflow:hidden;padding:0;display:flex;flex-direction:column;flex:1;min-height:0}
   #shell.constellation-insp .graphpanel{height:100%;min-height:400px;border-radius:0;border-bottom:none;flex-shrink:1}
@@ -81,6 +81,12 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
   #shell.constellation-insp #inspector{width:400px;height:calc(100vh - 60px);min-height:280px;opacity:1;display:block;border-top:none;border-left:1px solid var(--line)}
   /* When in constellation view but not showing inspector, hide it completely */
   #shell.constellation-insp:not(.insp) #inspector{width:0;opacity:0;display:none}
+}
+/* Mobile/tablet constellation-insp layout */
+@media (max-width:900px){
+  #shell.constellation-insp #inspector{position:fixed;right:0;top:60px;bottom:0;width:min(400px,92vw);z-index:50;box-shadow:-24px 0 60px rgba(0,0,0,.5)}
+  /* When in constellation view but not showing inspector on tablet, hide it */
+  #shell.constellation-insp:not(.insp) #inspector{display:none}
 }
 
 /* ---------- shared ---------- */
