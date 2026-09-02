@@ -1177,7 +1177,7 @@ function downloadMD(){
 
 /* ============================== inspector ============================== */
 function openNote(id){ selId=id; renderInspector(id); $("#shell").classList.add("insp"); }
-function openNoteInConstellation(id){ selId=id; renderInspector(id); $("#shell").classList.remove("insp"); $("#shell").classList.add("constellation-insp"); }
+function openNoteInConstellation(id){ selId=id; renderInspector(id); $("#shell").classList.add("constellation-insp"); $("#shell").classList.add("insp"); }
 function closeInspector(){ 
   selId=null; 
   // Only remove constellation-insp if not in graph view, to keep the full-screen layout
@@ -1301,7 +1301,7 @@ function initGraphCanvas(){
        switchSettingsTab('categories');
        openSettingsPanel();
      }else{
-       selId=d.n.id;renderInspector(selId);$("#shell").classList.remove("insp");$("#shell").classList.add("constellation-insp");
+       selId=d.n.id;renderInspector(selId);$("#shell").classList.add("constellation-insp");$("#shell").classList.add("insp");
      }
    }
  };
@@ -1311,7 +1311,7 @@ function initGraphCanvas(){
  gcanvas.ontouchmove=e=>{if(graph.drag&&e.touches.length===1){e.preventDefault();const t=e.touches[0],r=gcanvas.getBoundingClientRect(),p={x:t.clientX-r.left,y:t.clientY-r.top},d=graph.drag;
    if(Math.hypot(p.x-d.sx,p.y-d.sy)>4)d.moved=true;d.n.x=p.x;d.n.y=p.y;d.n.vx=0;d.n.vy=0;}};
  gcanvas.ontouchend=e=>{if(graph.drag)e.preventDefault();const d=graph.drag;graph.drag=null;gcanvas.classList.remove("drag");
-   if(d&&!d.moved){if(d.n.isCategory){switchSettingsTab('categories');openSettingsPanel();}else{selId=d.n.id;renderInspector(selId);$("#shell").classList.remove("insp");$("#shell").classList.add("constellation-insp");}}};
+   if(d&&!d.moved){if(d.n.isCategory){switchSettingsTab('categories');openSettingsPanel();}else{selId=d.n.id;renderInspector(selId);$("#shell").classList.add("constellation-insp");$("#shell").classList.add("insp");}}};
  gcanvas.ontouchcancel=e=>{graph.drag=null;gcanvas.classList.remove("drag");};
 }
 function gpos(e){const r=gcanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
